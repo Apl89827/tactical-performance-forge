@@ -1,6 +1,5 @@
 
 import { useNavigate } from "react-router-dom";
-import { Shield } from "lucide-react";
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -9,8 +8,12 @@ const Welcome = () => {
     <div className="h-full flex flex-col items-center justify-between bg-tactical-darkgray px-6 py-12">
       {/* Logo and Branding */}
       <div className="flex flex-col items-center mb-4">
-        <div className="w-24 h-24 bg-tactical-blue rounded-full flex items-center justify-center mb-4 shadow-lg shadow-tactical-blue/20">
-          <Shield size={48} className="text-white" />
+        <div className="w-32 h-32 flex items-center justify-center mb-4">
+          <img 
+            src="/lovable-uploads/cb57105b-33dc-4813-9b66-ba828e6b1d42.png" 
+            alt="Performance First Logo" 
+            className="w-full h-auto"
+          />
         </div>
         <h1 className="text-3xl font-bold mb-2">PF Tactical</h1>
         <p className="text-muted-foreground text-center">

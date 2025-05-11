@@ -16,6 +16,14 @@ const NotFound = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-tactical-darkgray p-6">
+      <div className="w-24 h-24 mb-6 flex items-center justify-center">
+        <img 
+          src="/lovable-uploads/cb57105b-33dc-4813-9b66-ba828e6b1d42.png" 
+          alt="Performance First Logo" 
+          className="w-full h-auto"
+        />
+      </div>
+      
       <div className="w-16 h-16 bg-tactical-blue/10 rounded-full flex items-center justify-center mb-6">
         <AlertTriangle className="text-tactical-blue h-8 w-8" />
       </div>

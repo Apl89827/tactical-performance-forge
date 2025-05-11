@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
@@ -57,6 +56,17 @@ const Dashboard = () => {
   return (
     <MobileLayout hideBackButton={true}>
       <div className="mobile-safe-area py-6">
+        {/* Logo */}
+        <div className="flex justify-center mb-4">
+          <div className="w-16 h-16 flex items-center justify-center">
+            <img 
+              src="/lovable-uploads/cb57105b-33dc-4813-9b66-ba828e6b1d42.png" 
+              alt="Performance First Logo" 
+              className="w-full h-auto"
+            />
+          </div>
+        </div>
+        
         {/* Header with greeting */}
         <header className="mb-6">
           <h1 className="text-2xl font-bold">
