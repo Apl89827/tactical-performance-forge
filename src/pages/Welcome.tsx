@@ -15,7 +15,7 @@ const Welcome = () => {
             className="w-full h-auto"
           />
         </div>
-        <h1 className="text-3xl font-bold mb-2">PF Tactical</h1>
+        <h1 className="text-3xl font-bold mb-2">Performance First Operator</h1>
         <p className="text-muted-foreground text-center">
           Performance-focused training for tactical athletes
         </p>
