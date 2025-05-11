@@ -19,11 +19,21 @@ import Library from "./pages/Library";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Create a new QueryClient
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Check if user has authenticated and completed onboarding
   useEffect(() => {
@@ -33,6 +43,7 @@ const App = () => {
     
     setIsAuthenticated(authStatus);
     setHasCompletedOnboarding(onboardingStatus);
+    setIsInitialized(true);
   }, []);
 
   // Mock authentication functions
@@ -52,12 +63,21 @@ const App = () => {
     localStorage.setItem("hasCompletedOnboarding", "true");
     setHasCompletedOnboarding(true);
   };
+  
+  // Show loading state until we've checked auth status
+  if (!isInitialized) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-tactical-darkgray">
+        <div className="animate-spin h-8 w-8 border-4 border-tactical-blue border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
+        <Sonner position="top-center" closeButton={true} />
         <BrowserRouter>
           <Routes>
             {/* Public routes */}

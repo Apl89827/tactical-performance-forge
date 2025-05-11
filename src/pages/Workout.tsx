@@ -1,19 +1,23 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import MobileLayout from "../components/layouts/MobileLayout";
-import { Play, Pause, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import MobileLayout from "../components/layouts/MobileLayout";
+import WorkoutTimer from "../components/workout/WorkoutTimer";
+import ExerciseCard from "../components/workout/ExerciseCard";
+import { Clock, CheckCircle } from "lucide-react";
 
 const Workout = () => {
   const { id } = useParams<{ id: string }>();
   const [workout, setWorkout] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
-  const [expandedExercises, setExpandedExercises] = useState<number[]>([0]);
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [isRestTimer, setIsRestTimer] = useState(false);
   const [workoutCompleted, setWorkoutCompleted] = useState(false);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [totalTime, setTotalTime] = useState(0);
   
   // Mock workout data
   useEffect(() => {
@@ -37,7 +41,7 @@ const Workout = () => {
             { setNumber: 4, targetReps: 5, weight: null, completedReps: null, isCompleted: false },
             { setNumber: 5, targetReps: 5, weight: null, completedReps: null, isCompleted: false },
           ],
-          notes: "Focus on maintaining proper back position and depth",
+          notes: "Focus on maintaining proper back position and depth. Brace core throughout the movement, keep chest up and drive through heels.",
           restTime: 180,
           video: "https://example.com/back-squat-video",
         },
@@ -50,7 +54,7 @@ const Workout = () => {
             { setNumber: 3, targetReps: 8, weight: null, completedReps: null, isCompleted: false },
             { setNumber: 4, targetReps: 8, weight: null, completedReps: null, isCompleted: false },
           ],
-          notes: "Maintain slight bend in knees, focus on hip hinge",
+          notes: "Maintain slight bend in knees, focus on hip hinge. Keep back flat and shoulders retracted. Feel the stretch in hamstrings.",
           restTime: 120,
           video: "https://example.com/romanian-deadlift-video",
         },
@@ -62,7 +66,7 @@ const Workout = () => {
             { setNumber: 2, targetReps: "12 each", weight: null, completedReps: null, isCompleted: false },
             { setNumber: 3, targetReps: "12 each", weight: null, completedReps: null, isCompleted: false },
           ],
-          notes: "Take long strides, keep front knee tracking over toes",
+          notes: "Take long strides, keep front knee tracking over toes. Maintain upright posture throughout the movement.",
           restTime: 90,
           video: "https://example.com/walking-lunges-video",
         },
@@ -74,7 +78,7 @@ const Workout = () => {
             { setNumber: 2, targetReps: "10 each", weight: null, completedReps: null, isCompleted: false },
             { setNumber: 3, targetReps: "10 each", weight: null, completedReps: null, isCompleted: false },
           ],
-          notes: "Drive through heel, maintain upright posture",
+          notes: "Drive through heel, maintain upright posture. Focus on controlled movement both up and down.",
           restTime: 90,
           video: "https://example.com/step-ups-video",
         },
@@ -87,6 +91,7 @@ const Workout = () => {
 
     setWorkout(mockWorkout);
     setLoading(false);
+    setStartTime(new Date());
   }, [id]);
   
   // Timer functionality
@@ -95,14 +100,43 @@ const Workout = () => {
     
     if (isTimerRunning) {
       interval = setInterval(() => {
-        setTimer((prev) => prev + 1);
+        setTimer((prev) => {
+          // For rest timer, countdown
+          if (isRestTimer && prev > 0) {
+            return prev - 1;
+          }
+          // For workout timer, count up
+          else if (!isRestTimer) {
+            return prev + 1;
+          }
+          // If rest timer reaches 0, stop and notify
+          else if (isRestTimer && prev === 0) {
+            setIsTimerRunning(false);
+            setIsRestTimer(false);
+            toast.success("Rest complete! Continue your workout.");
+            return 0;
+          }
+          return prev;
+        });
       }, 1000);
     }
     
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isTimerRunning]);
+  }, [isTimerRunning, isRestTimer]);
+  
+  // Calculate total workout time
+  useEffect(() => {
+    if (startTime && !workoutCompleted) {
+      const interval = setInterval(() => {
+        const elapsed = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+        setTotalTime(elapsed);
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [startTime, workoutCompleted]);
   
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -115,22 +149,26 @@ const Workout = () => {
   };
   
   const resetTimer = () => {
-    setTimer(0);
+    // If it's a rest timer, reset to the original rest time
+    if (isRestTimer) {
+      const currentExercise = workout.exercises[activeExerciseIndex];
+      if (currentExercise) {
+        setTimer(currentExercise.restTime);
+      } else {
+        setTimer(0);
+      }
+    } else {
+      // If it's the workout timer, reset to 0
+      setTimer(0);
+    }
     setIsTimerRunning(false);
   };
   
   const startRestTimer = (seconds: number) => {
     setTimer(seconds);
+    setIsRestTimer(true);
     setIsTimerRunning(true);
-    toast.info(`Rest timer set for ${formatTime(seconds)}`);
-  };
-  
-  const toggleExerciseExpand = (index: number) => {
-    if (expandedExercises.includes(index)) {
-      setExpandedExercises(expandedExercises.filter((i) => i !== index));
-    } else {
-      setExpandedExercises([...expandedExercises, index]);
-    }
+    toast.info(`Rest timer started: ${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`);
   };
   
   const updateSetData = (exerciseIndex: number, setIndex: number, field: string, value: any) => {
@@ -145,15 +183,34 @@ const Workout = () => {
     }
     
     setWorkout(newWorkout);
+    
+    // Check if all sets in this exercise are completed
+    const allSetsCompleted = newWorkout.exercises[exerciseIndex].sets.every(
+      (set: any) => set.isCompleted
+    );
+    
+    // If all sets are completed, move to next exercise
+    if (allSetsCompleted && exerciseIndex < newWorkout.exercises.length - 1) {
+      setActiveExerciseIndex(exerciseIndex + 1);
+    }
   };
   
   const handleCompleteWorkout = () => {
+    // Calculate exercise completion percentage
+    let totalSets = 0;
+    let completedSets = 0;
+    
+    workout.exercises.forEach((exercise: any) => {
+      exercise.sets.forEach((set: any) => {
+        totalSets++;
+        if (set.isCompleted) completedSets++;
+      });
+    });
+    
+    const completionPercentage = Math.round((completedSets / totalSets) * 100);
+    
     setWorkoutCompleted(true);
-    toast.success("Workout completed! Great job!");
-  };
-  
-  const isExerciseExpanded = (index: number) => {
-    return expandedExercises.includes(index);
+    toast.success(`Workout completed! ${completionPercentage}% of sets completed. Great job!`);
   };
   
   if (loading || !workout) {
@@ -166,37 +223,42 @@ const Workout = () => {
     );
   }
   
+  // Format total workout duration as MM:SS
+  const formatTotalTime = () => {
+    const hours = Math.floor(totalTime / 3600);
+    const minutes = Math.floor((totalTime % 3600) / 60);
+    const seconds = totalTime % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+  
   return (
     <MobileLayout title="Workout">
       <div className="mobile-safe-area py-4">
         {/* Workout header */}
         <header className="mb-4">
-          <h1 className="text-xl font-bold">{workout.title}</h1>
+          <div className="flex justify-between items-center mb-2">
+            <h1 className="text-xl font-bold">{workout.title}</h1>
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Clock size={14} className="mr-1" />
+              <span>{formatTotalTime()}</span>
+            </div>
+          </div>
           <p className="text-muted-foreground text-sm">{workout.description}</p>
         </header>
         
         {/* Timer */}
-        <div className="bg-secondary/50 rounded-lg p-3 mb-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="text-2xl font-mono font-bold">{formatTime(timer)}</div>
-          </div>
-          <div className="flex space-x-2">
-            <button 
-              onClick={toggleTimer}
-              className="p-2 rounded-full bg-tactical-blue/20 text-tactical-blue"
-            >
-              {isTimerRunning ? <Pause size={18} /> : <Play size={18} />}
-            </button>
-            <button
-              onClick={resetTimer}
-              className="p-2 rounded-full bg-secondary text-muted-foreground"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-8 3.58-8 8s3.58 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" fill="currentColor"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+        <WorkoutTimer
+          timer={timer}
+          isRunning={isTimerRunning}
+          onToggle={toggleTimer}
+          onReset={resetTimer}
+          isRest={isRestTimer}
+        />
         
         {/* Warm up section */}
         <section className="mb-6">
@@ -213,115 +275,24 @@ const Workout = () => {
         {/* Exercises */}
         <section className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Exercises</h2>
-          <div className="space-y-4">
+          <div className="space-y-1">
             {workout.exercises.map((exercise: any, exerciseIndex: number) => (
-              <div 
-                key={exercise.id} 
-                className={`bg-card rounded-lg border ${
-                  activeExerciseIndex === exerciseIndex
-                    ? "border-tactical-blue"
-                    : "border-border"
-                }`}
-              >
-                {/* Exercise header */}
-                <div 
-                  className="flex justify-between items-center p-4 cursor-pointer"
-                  onClick={() => toggleExerciseExpand(exerciseIndex)}
-                >
-                  <div className="flex items-center">
-                    <span className="bg-secondary h-6 w-6 rounded-full flex items-center justify-center mr-3 text-xs">
-                      {exerciseIndex + 1}
-                    </span>
-                    <h3 className="font-medium">{exercise.name}</h3>
-                  </div>
-                  {isExerciseExpanded(exerciseIndex) ? (
-                    <ChevronUp size={20} className="text-muted-foreground" />
-                  ) : (
-                    <ChevronDown size={20} className="text-muted-foreground" />
-                  )}
-                </div>
-                
-                {/* Exercise content when expanded */}
-                {isExerciseExpanded(exerciseIndex) && (
-                  <div className="px-4 pb-4">
-                    {/* Video placeholder */}
-                    <div className="aspect-video bg-tactical-blue/10 mb-4 rounded flex items-center justify-center">
-                      <Play size={32} className="text-tactical-blue" />
-                    </div>
-                    
-                    {/* Notes */}
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium mb-1">Form Notes:</h4>
-                      <p className="text-sm text-muted-foreground">{exercise.notes}</p>
-                    </div>
-                    
-                    {/* Sets */}
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium mb-2">Sets:</h4>
-                      
-                      <div className="space-y-3">
-                        {exercise.sets.map((set: any, setIndex: number) => (
-                          <div 
-                            key={setIndex} 
-                            className={`flex items-center space-x-3 p-3 rounded-md ${
-                              set.isCompleted ? "bg-tactical-blue/10" : "bg-secondary/30"
-                            }`}
-                          >
-                            <div className="w-6 text-center">
-                              <span className="text-sm">{set.setNumber}</span>
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="number"
-                                  value={set.weight || ""}
-                                  onChange={(e) => updateSetData(exerciseIndex, setIndex, "weight", e.target.value)}
-                                  className="w-16 p-2 text-center rounded bg-background border border-border"
-                                  placeholder="lbs"
-                                />
-                                <span className="text-sm text-muted-foreground">×</span>
-                                <input
-                                  type="text"
-                                  value={set.completedReps || ""}
-                                  onChange={(e) => updateSetData(exerciseIndex, setIndex, "completedReps", e.target.value)}
-                                  className="w-16 p-2 text-center rounded bg-background border border-border"
-                                  placeholder={set.targetReps.toString()}
-                                />
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => {
-                                updateSetData(exerciseIndex, setIndex, "isCompleted", !set.isCompleted);
-                                if (!set.isCompleted) {
-                                  startRestTimer(exercise.restTime);
-                                }
-                              }}
-                              className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                set.isCompleted
-                                  ? "bg-tactical-blue text-white"
-                                  : "bg-secondary text-muted-foreground"
-                              }`}
-                            >
-                              {set.isCompleted && <Check size={16} />}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Rest timer button */}
-                    <button
-                      onClick={() => startRestTimer(exercise.restTime)}
-                      className="w-full p-2 text-sm bg-secondary rounded flex items-center justify-center space-x-2"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 6v6l4 2M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      <span>Start {exercise.restTime / 60} min rest</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+              <ExerciseCard
+                key={exercise.id}
+                id={exercise.id}
+                index={exerciseIndex}
+                name={exercise.name}
+                sets={exercise.sets}
+                notes={exercise.notes}
+                restTime={exercise.restTime}
+                video={exercise.video}
+                isActive={activeExerciseIndex === exerciseIndex}
+                onSetComplete={(exerciseIndex, setIndex, isCompleted) => {
+                  updateSetData(exerciseIndex, setIndex, "isCompleted", isCompleted);
+                }}
+                onSetDataChange={updateSetData}
+                onRestTimerStart={startRestTimer}
+              />
             ))}
           </div>
         </section>
@@ -341,11 +312,22 @@ const Workout = () => {
         {/* Complete workout button */}
         <div className="pb-6">
           <button 
-            className={`btn-primary ${workoutCompleted ? "bg-green-600" : ""}`}
+            className={`btn-primary flex items-center justify-center space-x-2 ${
+              workoutCompleted 
+                ? "bg-green-600" 
+                : "bg-gradient-to-r from-tactical-blue to-tactical-blue/80"
+            }`}
             onClick={handleCompleteWorkout}
             disabled={workoutCompleted}
           >
-            {workoutCompleted ? "Workout Completed!" : "Complete Workout"}
+            {workoutCompleted ? (
+              <>
+                <CheckCircle size={18} className="mr-2" />
+                <span>Workout Completed!</span>
+              </>
+            ) : (
+              <span>Complete Workout</span>
+            )}
           </button>
         </div>
       </div>

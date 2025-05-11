@@ -1,5 +1,6 @@
 
 import { useNavigate } from "react-router-dom";
+import { Shield } from "lucide-react";
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -8,8 +9,8 @@ const Welcome = () => {
     <div className="h-full flex flex-col items-center justify-between bg-tactical-darkgray px-6 py-12">
       {/* Logo and Branding */}
       <div className="flex flex-col items-center mb-4">
-        <div className="w-24 h-24 bg-tactical-blue rounded-full flex items-center justify-center mb-4">
-          <span className="text-white text-3xl font-bold">PF</span>
+        <div className="w-24 h-24 bg-tactical-blue rounded-full flex items-center justify-center mb-4 shadow-lg shadow-tactical-blue/20">
+          <Shield size={48} className="text-white" />
         </div>
         <h1 className="text-3xl font-bold mb-2">PF Tactical</h1>
         <p className="text-muted-foreground text-center">
@@ -19,25 +20,35 @@ const Welcome = () => {
       
       {/* Hero image */}
       <div className="w-full max-w-xs mx-auto my-8 rounded-xl overflow-hidden">
-        <div className="aspect-[3/4] bg-tactical-blue/20 rounded-xl flex items-center justify-center">
-          {/* Placeholder for hero image */}
-          <div className="text-4xl font-bold text-tactical-blue/60">
-            <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m18 4 3 3-3 3"></path>
-              <path d="m18 20 3-3-3-3"></path>
-              <path d="M3 7h3a5 5 0 0 1 5 5 5 5 0 0 0 5 5h5"></path>
-              <path d="M3 17h3a5 5 0 0 0 5-5 5 5 0 0 1 5-5h5"></path>
-            </svg>
+        <div className="aspect-[3/4] bg-gradient-to-b from-tactical-blue/20 to-tactical-darkgray rounded-xl flex items-center justify-center shadow-inner">
+          {/* Hero image depicting tactical training */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-tactical-blue/60 mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16.2 3.8a2.7 2.7 0 0 0-3.81 0l-.4.38-.4-.4a2.7 2.7 0 0 0-3.82 0C6.73 4.85 6.67 6.64 8 8l4 4 4-4c1.33-1.36 1.27-3.15.2-4.2z"></path>
+                <path d="M8 8c-1.36 1.37-2 3.88-2 6.67 0 4.97 1.33 7.33 6 7.33s6-2.36 6-7.33c0-2.79-.64-5.3-2-6.67"></path>
+                <path d="M12 19v-3"></path>
+                <path d="M10 13V9"></path>
+                <path d="M14 13V9"></path>
+              </svg>
+            </div>
+            <p className="text-sm text-tactical-blue/80 font-medium">TACTICAL EXCELLENCE</p>
           </div>
         </div>
       </div>
       
       {/* Action buttons */}
       <div className="w-full space-y-4">
-        <button className="btn-primary" onClick={() => navigate("/login")}>
+        <button 
+          className="btn-primary bg-gradient-to-r from-tactical-blue to-tactical-blue/80 hover:from-tactical-blue/90 hover:to-tactical-blue/70 shadow-md"
+          onClick={() => navigate("/login")}
+        >
           Login
         </button>
-        <button className="btn-outline" onClick={() => navigate("/register")}>
+        <button 
+          className="btn-outline border-tactical-blue/30 text-tactical-blue hover:bg-tactical-blue/10" 
+          onClick={() => navigate("/register")}
+        >
           Create Account
         </button>
         

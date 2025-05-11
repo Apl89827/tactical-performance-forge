@@ -78,7 +78,7 @@
   }
   
   .mobile-content {
-    @apply flex-1 overflow-y-auto overflow-x-hidden pb-4;
+    @apply flex-1 overflow-y-auto overflow-x-hidden pb-4 scrollbar-hide;
   }
   
   .mobile-safe-area {
@@ -102,43 +102,114 @@
   }
   
   .btn-primary {
-    @apply bg-tactical-blue text-white font-semibold rounded-md px-6 py-3 w-full 
-    flex justify-center items-center transition-colors hover:bg-tactical-blue/90;
+    @apply bg-tactical-blue text-white font-semibold rounded-md px-6 py-3.5 w-full 
+    flex justify-center items-center transition-colors hover:bg-tactical-blue/90
+    active:scale-[0.98] focus:ring-2 focus:ring-tactical-blue/30 focus:ring-offset-1;
   }
   
   .btn-secondary {
-    @apply bg-secondary text-white font-semibold rounded-md px-6 py-3 w-full 
-    flex justify-center items-center transition-colors hover:bg-secondary/80;
+    @apply bg-secondary text-white font-semibold rounded-md px-6 py-3.5 w-full 
+    flex justify-center items-center transition-colors hover:bg-secondary/80
+    active:scale-[0.98] focus:ring-2 focus:ring-secondary/30 focus:ring-offset-1;
   }
   
   .btn-accent {
-    @apply bg-tactical-orange text-white font-semibold rounded-md px-6 py-3 w-full 
-    flex justify-center items-center transition-colors hover:bg-tactical-orange/90;
+    @apply bg-tactical-orange text-white font-semibold rounded-md px-6 py-3.5 w-full 
+    flex justify-center items-center transition-colors hover:bg-tactical-orange/90
+    active:scale-[0.98] focus:ring-2 focus:ring-tactical-orange/30 focus:ring-offset-1;
   }
   
   .btn-outline {
     @apply border border-border bg-transparent text-foreground font-semibold rounded-md 
-    px-6 py-3 w-full flex justify-center items-center transition-colors hover:bg-muted;
+    px-6 py-3.5 w-full flex justify-center items-center transition-colors hover:bg-muted
+    active:scale-[0.98] focus:ring-2 focus:ring-white/10 focus:ring-offset-1;
   }
   
   .input-field {
-    @apply w-full bg-muted border border-border rounded-md px-4 py-3 text-foreground;
+    @apply w-full bg-muted border border-border rounded-md px-4 py-3 text-foreground
+    focus:border-tactical-blue/50 focus:ring-1 focus:ring-tactical-blue/20 transition-all;
   }
   
   .bottom-tabs {
     @apply fixed bottom-0 left-0 right-0 bg-tactical-darkgray border-t border-border 
-    flex justify-around items-center h-16 px-2;
+    flex justify-around items-center h-16 px-2 backdrop-blur-lg bg-opacity-90;
   }
   
   .tab-item {
-    @apply flex-1 flex flex-col items-center justify-center py-1;
+    @apply flex-1 flex flex-col items-center justify-center py-1 relative;
   }
   
   .tab-icon {
-    @apply mb-1;
+    @apply mb-1 transition-transform;
   }
   
   .tab-text {
-    @apply text-xs;
+    @apply text-xs transition-opacity;
   }
+  
+  .tab-item.active .tab-icon {
+    @apply scale-110 text-tactical-blue;
+  }
+  
+  .tab-item.active .tab-text {
+    @apply text-tactical-blue font-medium;
+  }
+  
+  .tab-item.active::after {
+    content: '';
+    @apply absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1/3 h-0.5 bg-tactical-blue rounded-full;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .pulse-subtle {
+    animation: pulse-subtle 2s infinite;
+  }
+  
+  /* Semi-transparent gradient overlay for cards */
+  .card-gradient {
+    @apply relative overflow-hidden;
+  }
+  
+  .card-gradient::after {
+    content: '';
+    @apply absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-tactical-blue/5 to-transparent pointer-events-none;
+  }
+}
+
+@keyframes pulse-subtle {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
 }
