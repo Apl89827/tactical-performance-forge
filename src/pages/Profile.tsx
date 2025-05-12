@@ -20,6 +20,14 @@ interface ProfileData {
   last_name?: string;
   avatar_url?: string;
   isAdmin?: boolean;
+  height?: number;
+  weight?: number;
+  ptScores?: {
+    runTime?: string;
+    pushups?: number;
+    situps?: number;
+    pullups?: number;
+  };
 }
 
 const Profile = () => {
