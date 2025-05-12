@@ -4,7 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
 
 // Pages
 import Welcome from "./pages/Welcome";
@@ -17,7 +19,19 @@ import Calendar from "./pages/Calendar";
 import Progress from "./pages/Progress";
 import Library from "./pages/Library";
 import Profile from "./pages/Profile";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+
+// Create auth context
+export const AuthContext = createContext<{
+  session: Session | null;
+  user: User | null;
+  isAdmin: boolean;
+}>({
+  session: null,
+  user: null,
+  isAdmin: false,
+});
 
 // Create a new QueryClient
 const queryClient = new QueryClient({
@@ -31,32 +45,69 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Check if user has authenticated and completed onboarding
+  // Check authentication and admin status
   useEffect(() => {
-    // For the mockup, we'll just use localStorage
-    const authStatus = localStorage.getItem("isAuthenticated") === "true";
-    const onboardingStatus = localStorage.getItem("hasCompletedOnboarding") === "true";
-    
-    setIsAuthenticated(authStatus);
-    setHasCompletedOnboarding(onboardingStatus);
-    setIsInitialized(true);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          // Using setTimeout to prevent auth deadlocks
+          setTimeout(() => {
+            checkAdminStatus(session.user.id);
+            checkOnboardingStatus();
+          }, 0);
+        } else {
+          setIsAdmin(false);
+        }
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        checkAdminStatus(session.user.id);
+        checkOnboardingStatus();
+      }
+      
+      setIsInitialized(true);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Mock authentication functions
-  const handleLogin = () => {
-    localStorage.setItem("isAuthenticated", "true");
-    setIsAuthenticated(true);
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('role', 'admin');
+        
+      if (error) throw error;
+      
+      setIsAdmin(data && data.length > 0);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      setIsAdmin(false);
+    }
   };
-
-  const handleLogout = () => {
-    localStorage.setItem("isAuthenticated", "false");
-    localStorage.setItem("hasCompletedOnboarding", "false");
-    setIsAuthenticated(false);
-    setHasCompletedOnboarding(false);
+  
+  const checkOnboardingStatus = () => {
+    // For simplicity, we'll use localStorage for onboarding status
+    const onboardingStatus = localStorage.getItem("hasCompletedOnboarding") === "true";
+    setHasCompletedOnboarding(onboardingStatus);
   };
 
   const completeOnboarding = () => {
@@ -75,81 +126,84 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner position="top-center" closeButton={true} />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Welcome />} />
-            <Route path="/login" element={<Login onLogin={handleLogin} />} />
-            <Route path="/register" element={<Register onRegister={handleLogin} />} />
-            
-            {/* Authentication check for onboarding */}
-            <Route 
-              path="/onboarding" 
-              element={
-                isAuthenticated ? 
-                  (hasCompletedOnboarding ? <Navigate to="/dashboard" /> : <Onboarding onComplete={completeOnboarding} />) : 
-                  <Navigate to="/login" />
-              } 
-            />
-            
-            {/* Protected routes - require authentication and completed onboarding */}
-            <Route 
-              path="/dashboard" 
-              element={
-                isAuthenticated ? 
-                  (hasCompletedOnboarding ? <Dashboard /> : <Navigate to="/onboarding" />) : 
-                  <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/workout/:id" 
-              element={
-                isAuthenticated ? 
-                  (hasCompletedOnboarding ? <Workout /> : <Navigate to="/onboarding" />) : 
-                  <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/calendar" 
-              element={
-                isAuthenticated ? 
-                  (hasCompletedOnboarding ? <Calendar /> : <Navigate to="/onboarding" />) : 
-                  <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/progress" 
-              element={
-                isAuthenticated ? 
-                  (hasCompletedOnboarding ? <Progress /> : <Navigate to="/onboarding" />) : 
-                  <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/library" 
-              element={
-                isAuthenticated ? 
-                  (hasCompletedOnboarding ? <Library /> : <Navigate to="/onboarding" />) : 
-                  <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                isAuthenticated ? 
-                  (hasCompletedOnboarding ? <Profile onLogout={handleLogout} /> : <Navigate to="/onboarding" />) : 
-                  <Navigate to="/login" />
-              } 
-            />
-            
-            {/* 404 route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthContext.Provider value={{ session, user, isAdmin }}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner position="top-center" closeButton={true} />
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={session ? <Navigate to="/dashboard" /> : <Welcome />} />
+              <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
+              <Route path="/register" element={session ? <Navigate to="/dashboard" /> : <Register />} />
+              
+              {/* Authentication check for onboarding */}
+              <Route 
+                path="/onboarding" 
+                element={
+                  session ? 
+                    (hasCompletedOnboarding ? <Navigate to="/dashboard" /> : <Onboarding onComplete={completeOnboarding} />) : 
+                    <Navigate to="/login" />
+                } 
+              />
+              
+              {/* Protected routes - require authentication and completed onboarding */}
+              <Route 
+                path="/dashboard" 
+                element={
+                  session ? 
+                    (hasCompletedOnboarding ? <Dashboard /> : <Navigate to="/onboarding" />) : 
+                    <Navigate to="/login" />
+                } 
+              />
+              <Route 
+                path="/workout/:id" 
+                element={
+                  session ? 
+                    (hasCompletedOnboarding ? <Workout /> : <Navigate to="/onboarding" />) : 
+                    <Navigate to="/login" />
+                } 
+              />
+              <Route 
+                path="/calendar" 
+                element={
+                  session ? 
+                    (hasCompletedOnboarding ? <Calendar /> : <Navigate to="/onboarding" />) : 
+                    <Navigate to="/login" />
+                } 
+              />
+              <Route 
+                path="/progress" 
+                element={
+                  session ? 
+                    (hasCompletedOnboarding ? <Progress /> : <Navigate to="/onboarding" />) : 
+                    <Navigate to="/login" />
+                } 
+              />
+              <Route 
+                path="/library" 
+                element={
+                  session ? 
+                    (hasCompletedOnboarding ? <Library /> : <Navigate to="/onboarding" />) : 
+                    <Navigate to="/login" />
+                } 
+              />
+              <Route path="/profile" element={session ? <Profile /> : <Navigate to="/login" />} />
+              
+              {/* Admin routes */}
+              <Route 
+                path="/admin" 
+                element={
+                  session && isAdmin ? <Admin /> : <Navigate to="/dashboard" />
+                }
+              />
+              
+              {/* 404 route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthContext.Provider>
     </QueryClientProvider>
   );
 };

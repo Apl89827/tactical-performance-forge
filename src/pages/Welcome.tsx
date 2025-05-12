@@ -1,8 +1,33 @@
 
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 const Welcome = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/dashboard');
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    checkSession();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-tactical-darkgray">
+        <div className="animate-spin h-8 w-8 border-4 border-tactical-blue border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col items-center justify-between bg-tactical-darkgray px-6 py-12">

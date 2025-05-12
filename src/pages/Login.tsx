@@ -2,31 +2,36 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
-interface LoginProps {
-  onLogin: () => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API request
-    setTimeout(() => {
-      if (email && password) {
-        onLogin();
-        navigate("/onboarding");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        toast.error(error.message);
       } else {
-        toast.error("Please enter both email and password");
+        toast.success("Signed in successfully");
+        navigate("/dashboard");
       }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+      console.error(error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
