@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -20,6 +19,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [pushups, setPushups] = useState("");
   const [situps, setSitups] = useState("");
   const [pullups, setPullups] = useState("");
+  const [name, setName] = useState("");
 
   const handleNext = () => {
     if (step === 1 && !focusType) {
@@ -53,16 +53,17 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const completeOnboarding = () => {
     // Save profile data
     const profileData = {
+      first_name: name,
       focusType,
       selectionType: focusType === "Selection Candidate" ? selectionType : "",
       selectionDate: focusType === "Selection Candidate" ? selectionDate : "",
-      height,
-      weight,
+      height: parseInt(height, 10) || 0,
+      weight: parseInt(weight, 10) || 0,
       ptScores: {
         runTime,
-        pushups,
-        situps,
-        pullups,
+        pushups: parseInt(pushups, 10) || 0,
+        situps: parseInt(situps, 10) || 0,
+        pullups: parseInt(pullups, 10) || 0,
       },
     };
     
@@ -91,6 +92,23 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             <p className="text-muted-foreground">
               This helps us tailor your training program to your specific needs.
             </p>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="name" className="block text-sm font-medium">
+                  Your Name
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-field"
+                  placeholder="Enter your name"
+                  required
+                />
+              </div>
+            </div>
 
             <div className="space-y-3 mt-4">
               <button

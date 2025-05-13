@@ -1,25 +1,28 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
 import { Play, Clock, Calendar as CalendarIcon, BarChart2 } from "lucide-react";
+import CountdownTile from "../components/home/CountdownTile";
+import EditableStats from "../components/home/EditableStats";
+import EditableWorkout from "../components/home/EditableWorkout";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  useEffect(() => {
-    // Get profile data from localStorage
-    const storedData = localStorage.getItem("profileData");
-    if (storedData) {
-      setProfileData(JSON.parse(storedData));
-    }
-    
-    setLoading(false);
-  }, []);
+  // Stats state
+  const [stats, setStats] = useState({
+    phase: "Strength",
+    week: "2 of 8",
+    workouts: "7 Done"
+  });
   
   // Mock data for today's workout
-  const todaysWorkout = {
+  const [todaysWorkout, setTodaysWorkout] = useState({
     id: "today",
     title: "Lower Body Strength",
     description: "Focus on squat patterns and posterior chain",
@@ -30,7 +33,7 @@ const Dashboard = () => {
       { name: "Weighted Step-ups", sets: 3, reps: "10 each" },
     ],
     duration: 60,
-  };
+  });
   
   // Mock data for upcoming workouts
   const upcomingWorkouts = [
@@ -48,10 +51,67 @@ const Dashboard = () => {
     },
   ];
   
+  useEffect(() => {
+    async function getUserData() {
+      try {
+        // Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          navigate("/login");
+          return;
+        }
+        
+        // Get profile data from localStorage or API
+        const storedData = localStorage.getItem("profileData");
+        const parsedData = storedData ? JSON.parse(storedData) : null;
+        
+        if (parsedData) {
+          setProfileData(parsedData);
+        }
+        
+        // Check if user is admin
+        const { data: roles, error } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('role', 'admin');
+          
+        setIsAdmin(roles && roles.length > 0);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    getUserData();
+  }, [navigate]);
+  
   // Format date as "Day, Month Date"
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
+  
+  // Update stats handler
+  const handleStatsUpdate = (newStats: {phase: string, week: string, workouts: string}) => {
+    setStats(newStats);
+  };
+  
+  // Update workout handler
+  const handleWorkoutUpdate = (updatedWorkout: any) => {
+    setTodaysWorkout(updatedWorkout);
+  };
+
+  if (loading) {
+    return (
+      <MobileLayout hideBackButton={true}>
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin h-8 w-8 border-4 border-tactical-blue border-t-transparent rounded-full"></div>
+        </div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout hideBackButton={true}>
@@ -70,57 +130,34 @@ const Dashboard = () => {
         {/* Header with greeting */}
         <header className="mb-6">
           <h1 className="text-2xl font-bold">
-            Good morning, {profileData?.name || "Athlete"}
+            Good morning, {profileData?.first_name || "Athlete"}
           </h1>
           <p className="text-muted-foreground">Let's crush today's workout</p>
         </header>
         
-        {/* Quick stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="metric-card">
-            <span className="text-xs text-muted-foreground">Phase</span>
-            <span className="text-base font-semibold">Strength</span>
-          </div>
-          <div className="metric-card">
-            <span className="text-xs text-muted-foreground">Week</span>
-            <span className="text-base font-semibold">2 of 8</span>
-          </div>
-          <div className="metric-card">
-            <span className="text-xs text-muted-foreground">Workouts</span>
-            <span className="text-base font-semibold">7 Done</span>
-          </div>
-        </div>
+        {/* Selection Countdown Tile - Only visible if selection data exists */}
+        <CountdownTile 
+          selectionDate={profileData?.selectionDate || null} 
+          selectionType={profileData?.selectionType || null} 
+        />
         
-        {/* Today's workout */}
+        {/* Quick stats - Now editable for admins */}
+        <EditableStats
+          phase={stats.phase}
+          week={stats.week}
+          workouts={stats.workouts}
+          isAdmin={isAdmin}
+          onStatsUpdated={handleStatsUpdate}
+        />
+        
+        {/* Today's workout - Now editable for admins */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-3">Today's Workout</h2>
-          <div className="workout-card">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-xl">{todaysWorkout.title}</h3>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <Clock size={14} className="mr-1" />
-                <span>{todaysWorkout.duration} min</span>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">{todaysWorkout.description}</p>
-            
-            <div className="space-y-2 mb-4">
-              {todaysWorkout.exercises.map((exercise, index) => (
-                <div key={index} className="flex justify-between py-1 border-b border-border/50 last:border-0">
-                  <span>{exercise.name}</span>
-                  <span className="text-muted-foreground">{exercise.sets} × {exercise.reps}</span>
-                </div>
-              ))}
-            </div>
-            
-            <button 
-              className="btn-primary"
-              onClick={() => navigate(`/workout/${todaysWorkout.id}`)}
-            >
-              <Play size={18} className="mr-2" />
-              Start Workout
-            </button>
-          </div>
+          <EditableWorkout
+            workout={todaysWorkout}
+            isAdmin={isAdmin}
+            onWorkoutUpdated={handleWorkoutUpdate}
+          />
         </section>
         
         {/* Upcoming workouts */}
