@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
@@ -9,10 +10,17 @@ import {
   Shield,
   HelpCircle,
   Settings,
-  FileEdit
+  FileEdit,
+  Calendar
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
 
 interface ProfileData {
   id: string;
@@ -28,6 +36,8 @@ interface ProfileData {
     situps?: number;
     pullups?: number;
   };
+  selectionType?: string;
+  selectionDate?: string;
 }
 
 const Profile = () => {
@@ -35,6 +45,16 @@ const Profile = () => {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Edit states
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+  const [isEditingSelection, setIsEditingSelection] = useState(false);
+  
+  // Form states
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  const [weight, setWeight] = useState<number | undefined>(undefined);
+  const [selectionType, setSelectionType] = useState<string | undefined>(undefined);
+  const [selectionDate, setSelectionDate] = useState<Date | undefined>(undefined);
   
   useEffect(() => {
     async function getProfile() {
@@ -65,12 +85,24 @@ const Profile = () => {
           
         if (rolesError) throw rolesError;
         
-        setProfileData({
+        // Get stored selection data
+        const storedData = localStorage.getItem("profileData");
+        const selectionData = storedData ? JSON.parse(storedData) : {};
+        
+        const combinedProfile = {
           ...profile,
           id: user.id,
           first_name: profile.first_name || user.user_metadata.first_name,
-          last_name: profile.last_name || user.user_metadata.last_name
-        });
+          last_name: profile.last_name || user.user_metadata.last_name,
+          selectionType: selectionData.selectionType || null,
+          selectionDate: selectionData.selectionDate || null
+        };
+        
+        setProfileData(combinedProfile);
+        setHeight(combinedProfile.height);
+        setWeight(combinedProfile.weight);
+        setSelectionType(combinedProfile.selectionType);
+        setSelectionDate(combinedProfile.selectionDate ? new Date(combinedProfile.selectionDate) : undefined);
         
         setIsAdmin(roles && roles.length > 0);
       } catch (error) {
@@ -94,6 +126,66 @@ const Profile = () => {
     } catch (error) {
       console.error("Error logging out:", error);
       toast.error("Error logging out");
+    }
+  };
+  
+  const handleSavePersonal = async () => {
+    if (!profileData) return;
+    
+    try {
+      // Update profile in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          height: height,
+          weight: weight
+        })
+        .eq('id', profileData.id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setProfileData(prev => prev ? {
+        ...prev,
+        height,
+        weight
+      } : null);
+      
+      setIsEditingPersonal(false);
+      toast.success("Personal information updated");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
+    }
+  };
+  
+  const handleSaveSelection = () => {
+    if (!selectionType || !selectionDate) {
+      toast.error("Please select both a selection type and date");
+      return;
+    }
+    
+    try {
+      // Update local state
+      const updatedProfile = {
+        ...profileData,
+        selectionType,
+        selectionDate: selectionDate.toISOString()
+      };
+      setProfileData(updatedProfile);
+      
+      // Store in localStorage for other components
+      const dataToStore = {
+        ...updatedProfile,
+        id: undefined // Don't store sensitive ID
+      };
+      localStorage.setItem("profileData", JSON.stringify(dataToStore));
+      
+      setIsEditingSelection(false);
+      toast.success("Selection information updated");
+    } catch (error) {
+      console.error("Error updating selection:", error);
+      toast.error("Failed to update selection information");
     }
   };
   
@@ -139,6 +231,83 @@ const Profile = () => {
               {isAdmin ? 'Administrator' : 'Member'}
             </p>
           </div>
+        </div>
+        
+        {/* Selection information */}
+        <div className="bg-card rounded-lg border border-border mb-6">
+          <div className="flex justify-between items-center p-4 border-b border-border">
+            <h2 className="font-semibold">Selection Information</h2>
+            <button 
+              className="p-1 rounded-full hover:bg-muted"
+              onClick={() => setIsEditingSelection(true)}
+            >
+              <FileEdit size={18} className="text-tactical-blue" />
+            </button>
+          </div>
+          
+          {isEditingSelection ? (
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-1 block">Selection Type</label>
+                <Select value={selectionType} onValueChange={setSelectionType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SFAS">Special Forces Assessment & Selection (SFAS)</SelectItem>
+                    <SelectItem value="RASP">Ranger Assessment & Selection Program (RASP)</SelectItem>
+                    <SelectItem value="A&S">Marine Raider Assessment & Selection (A&S)</SelectItem>
+                    <SelectItem value="BUD/S">Basic Underwater Demolition/SEAL (BUD/S)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-1 block">Selection Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {selectionDate ? format(selectionDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <CalendarComponent
+                      mode="single"
+                      selected={selectionDate}
+                      onSelect={setSelectionDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditingSelection(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveSelection}>Save</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              <div className="flex justify-between items-center p-4">
+                <span>Selection Type</span>
+                <span className="font-medium">{profileData?.selectionType || "Not set"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Selection Date</span>
+                <span className="font-medium">
+                  {profileData?.selectionDate 
+                    ? format(new Date(profileData.selectionDate), "PPP") 
+                    : "Not set"}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Admin section (only visible for admins) */}
@@ -187,39 +356,84 @@ const Profile = () => {
         
         {/* Physical metrics */}
         <div className="bg-card rounded-lg border border-border mb-6">
-          <h2 className="font-semibold p-4 border-b border-border">Physical Metrics</h2>
-          
-          <div className="divide-y divide-border">
-            <div className="flex justify-between items-center p-4">
-              <span>Height</span>
-              <span className="font-medium">{profileData?.height ? `${Math.floor(profileData.height / 12)}' ${profileData.height % 12}"` : "--"}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span>Weight</span>
-              <span className="font-medium">{profileData?.weight ? `${profileData.weight} lbs` : "--"}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span>1.5 Mile Run</span>
-              <span className="font-medium">{profileData?.ptScores?.runTime || "--"}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span>Push-ups</span>
-              <span className="font-medium">{profileData?.ptScores?.pushups || "--"}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span>Sit-ups</span>
-              <span className="font-medium">{profileData?.ptScores?.situps || "--"}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span>Pull-ups</span>
-              <span className="font-medium">{profileData?.ptScores?.pullups || "--"}</span>
-            </div>
+          <div className="flex justify-between items-center p-4 border-b border-border">
+            <h2 className="font-semibold">Physical Metrics</h2>
+            <button 
+              className="p-1 rounded-full hover:bg-muted"
+              onClick={() => setIsEditingPersonal(true)}
+            >
+              <FileEdit size={18} className="text-tactical-blue" />
+            </button>
           </div>
           
+          {isEditingPersonal ? (
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-1 block">Height (inches)</label>
+                <Input 
+                  type="number" 
+                  value={height || ''} 
+                  onChange={(e) => setHeight(e.target.value ? parseInt(e.target.value) : undefined)} 
+                  placeholder="Height in inches"
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-1 block">Weight (lbs)</label>
+                <Input 
+                  type="number" 
+                  value={weight || ''} 
+                  onChange={(e) => setWeight(e.target.value ? parseInt(e.target.value) : undefined)} 
+                  placeholder="Weight in pounds"
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditingPersonal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSavePersonal}>Save</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              <div className="flex justify-between items-center p-4">
+                <span>Height</span>
+                <span className="font-medium">{profileData?.height ? `${Math.floor(profileData.height / 12)}' ${profileData.height % 12}"` : "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Weight</span>
+                <span className="font-medium">{profileData?.weight ? `${profileData.weight} lbs` : "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>1.5 Mile Run</span>
+                <span className="font-medium">{profileData?.ptScores?.runTime || "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Push-ups</span>
+                <span className="font-medium">{profileData?.ptScores?.pushups || "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Sit-ups</span>
+                <span className="font-medium">{profileData?.ptScores?.situps || "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Pull-ups</span>
+                <span className="font-medium">{profileData?.ptScores?.pullups || "--"}</span>
+              </div>
+            </div>
+          )}
+          
           <div className="p-4">
-            <button className="btn-primary" onClick={updatePTScore}>
+            <Button 
+              className="w-full" 
+              onClick={updatePTScore}
+            >
               Update PT Scores
-            </button>
+            </Button>
           </div>
         </div>
         
