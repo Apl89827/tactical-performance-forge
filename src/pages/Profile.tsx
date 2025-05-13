@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
@@ -28,16 +27,16 @@ interface ProfileData {
   last_name?: string;
   avatar_url?: string;
   isAdmin?: boolean;
-  height?: number;
-  weight?: number;
+  height?: number | null;
+  weight?: number | null;
   ptScores?: {
     runTime?: string;
     pushups?: number;
     situps?: number;
     pullups?: number;
   };
-  selectionType?: string;
-  selectionDate?: string;
+  selectionType?: string | null;
+  selectionDate?: string | null;
 }
 
 const Profile = () => {
@@ -53,7 +52,7 @@ const Profile = () => {
   // Form states
   const [height, setHeight] = useState<number | undefined>(undefined);
   const [weight, setWeight] = useState<number | undefined>(undefined);
-  const [selectionType, setSelectionType] = useState<string | undefined>(undefined);
+  const [selectionType, setSelectionType] = useState<string | null>(null);
   const [selectionDate, setSelectionDate] = useState<Date | undefined>(undefined);
   
   useEffect(() => {
@@ -101,8 +100,8 @@ const Profile = () => {
         };
         
         setProfileData(combinedProfile);
-        setHeight(combinedProfile.height);
-        setWeight(combinedProfile.weight);
+        setHeight(combinedProfile.height || undefined);
+        setWeight(combinedProfile.weight || undefined);
         setSelectionType(combinedProfile.selectionType);
         setSelectionDate(combinedProfile.selectionDate ? new Date(combinedProfile.selectionDate) : undefined);
         
@@ -178,8 +177,8 @@ const Profile = () => {
       
       // Store in localStorage for other components
       const dataToStore = {
-        ...updatedProfile,
-        id: undefined // Don't store sensitive ID
+        selectionType,
+        selectionDate: selectionDate.toISOString()
       };
       localStorage.setItem("profileData", JSON.stringify(dataToStore));
       
@@ -251,7 +250,7 @@ const Profile = () => {
             <div className="p-4">
               <div className="mb-4">
                 <label className="text-sm font-medium mb-1 block">Selection Type</label>
-                <Select value={selectionType} onValueChange={setSelectionType}>
+                <Select value={selectionType || ''} onValueChange={setSelectionType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a type" />
                   </SelectTrigger>
@@ -277,7 +276,7 @@ const Profile = () => {
                     <CalendarComponent
                       mode="single"
                       selected={selectionDate}
-                      onSelect={setSelectionDate}
+                      onSelect={(date) => setSelectionDate(date || undefined)}
                       initialFocus
                     />
                   </PopoverContent>
