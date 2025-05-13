@@ -89,11 +89,13 @@ const Profile = () => {
         const storedData = localStorage.getItem("profileData");
         const selectionData = storedData ? JSON.parse(storedData) : {};
         
-        const combinedProfile = {
+        const combinedProfile: ProfileData = {
           ...profile,
           id: user.id,
           first_name: profile.first_name || user.user_metadata.first_name,
           last_name: profile.last_name || user.user_metadata.last_name,
+          height: profile.height,
+          weight: profile.weight,
           selectionType: selectionData.selectionType || null,
           selectionDate: selectionData.selectionDate || null
         };
