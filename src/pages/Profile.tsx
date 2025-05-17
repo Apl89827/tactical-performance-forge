@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
@@ -20,6 +21,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import ProgramCreator from "@/components/admin/ProgramCreator";
 
 interface ProfileData {
   id: string;
@@ -316,9 +318,13 @@ const Profile = () => {
           <div className="bg-card rounded-lg border border-border mb-6">
             <h2 className="font-semibold p-4 border-b border-border">Admin Tools</h2>
             
+            <div className="p-4">
+              <ProgramCreator />
+            </div>
+            
             <div>
               <button 
-                className="w-full flex items-center justify-between p-4 border-b border-border"
+                className="w-full flex items-center justify-between p-4 border-t border-border"
                 onClick={navigateToAdmin}
               >
                 <div className="flex items-center">
@@ -328,7 +334,7 @@ const Profile = () => {
                 <ChevronRight size={18} className="text-muted-foreground" />
               </button>
               
-              <button className="w-full flex items-center justify-between p-4">
+              <button className="w-full flex items-center justify-between p-4 border-t border-border">
                 <div className="flex items-center">
                   <Settings size={18} className="mr-3 text-tactical-blue" />
                   <span>System Settings</span>

@@ -75,6 +75,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_program_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          end_date: string | null
+          id: string
+          program_id: string | null
+          start_date: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          end_date?: string | null
+          id?: string
+          program_id?: string | null
+          start_date?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          end_date?: string | null
+          id?: string
+          program_id?: string | null
+          start_date?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_program_assignments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "workout_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -93,6 +131,71 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      workout_exercises: {
+        Row: {
+          created_at: string
+          id: string
+          movement_name: string
+          notes: string | null
+          order_position: number
+          program_id: string
+          reps: number
+          sets: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movement_name: string
+          notes?: string | null
+          order_position?: number
+          program_id: string
+          reps?: number
+          sets?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movement_name?: string
+          notes?: string | null
+          order_position?: number
+          program_id?: string
+          reps?: number
+          sets?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_exercises_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "workout_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_programs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          title?: string
         }
         Relationships: []
       }
