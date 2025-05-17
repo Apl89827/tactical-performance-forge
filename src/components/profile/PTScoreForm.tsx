@@ -1,0 +1,214 @@
+
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface PTScoreFormProps {
+  userId: string;
+  initialValues: {
+    runTime?: string;
+    pushups?: number;
+    situps?: number;
+    pullups?: number;
+    swimTime?: string;
+    bench5rm?: number;
+    deadlift5rm?: number;
+    squat5rm?: number;
+  };
+  onComplete: () => void;
+}
+
+const PTScoreForm: React.FC<PTScoreFormProps> = ({ userId, initialValues, onComplete }) => {
+  const [runTime, setRunTime] = useState(initialValues.runTime || '');
+  const [pushups, setPushups] = useState(initialValues.pushups || '');
+  const [situps, setSitups] = useState(initialValues.situps || '');
+  const [pullups, setPullups] = useState(initialValues.pullups || '');
+  const [swimTime, setSwimTime] = useState(initialValues.swimTime || '');
+  const [bench5rm, setBench5rm] = useState(initialValues.bench5rm || '');
+  const [deadlift5rm, setDeadlift5rm] = useState(initialValues.deadlift5rm || '');
+  const [squat5rm, setSquat5rm] = useState(initialValues.squat5rm || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Store PT scores in the database
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          swim_time: swimTime,
+          bench_5rm: bench5rm ? parseInt(bench5rm.toString()) : null,
+          deadlift_5rm: deadlift5rm ? parseInt(deadlift5rm.toString()) : null,
+          squat_5rm: squat5rm ? parseInt(squat5rm.toString()) : null
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      // Store legacy PT scores in localStorage for now
+      // (These could be moved to the database in a future update)
+      const ptScores = {
+        runTime,
+        pushups: pushups ? parseInt(pushups.toString()) : 0,
+        situps: situps ? parseInt(situps.toString()) : 0,
+        pullups: pullups ? parseInt(pullups.toString()) : 0
+      };
+
+      // Get existing profile data
+      const storedData = localStorage.getItem("profileData");
+      const existingData = storedData ? JSON.parse(storedData) : {};
+      
+      // Update with new PT scores
+      localStorage.setItem("profileData", JSON.stringify({
+        ...existingData,
+        ptScores
+      }));
+
+      toast.success("PT scores updated successfully");
+      onComplete();
+    } catch (error) {
+      console.error("Error updating PT scores:", error);
+      toast.error("Failed to update PT scores");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="runTime" className="text-sm font-medium mb-1 block">
+            1.5 Mile Run Time
+          </label>
+          <Input
+            id="runTime"
+            type="text"
+            value={runTime}
+            onChange={(e) => setRunTime(e.target.value)}
+            placeholder="e.g., 10:30"
+          />
+        </div>
+        <div>
+          <label htmlFor="swimTime" className="text-sm font-medium mb-1 block">
+            500m Swim (50m splits)
+          </label>
+          <Input
+            id="swimTime"
+            type="text"
+            value={swimTime}
+            onChange={(e) => setSwimTime(e.target.value)}
+            placeholder="e.g., 8:45"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="pushups" className="text-sm font-medium mb-1 block">
+            Max Push-ups (2 min)
+          </label>
+          <Input
+            id="pushups"
+            type="number"
+            value={pushups}
+            onChange={(e) => setPushups(e.target.value)}
+            placeholder="e.g., 50"
+          />
+        </div>
+        <div>
+          <label htmlFor="situps" className="text-sm font-medium mb-1 block">
+            Max Sit-ups (2 min)
+          </label>
+          <Input
+            id="situps"
+            type="number"
+            value={situps}
+            onChange={(e) => setSitups(e.target.value)}
+            placeholder="e.g., 60"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="pullups" className="text-sm font-medium mb-1 block">
+            Max Pull-ups
+          </label>
+          <Input
+            id="pullups"
+            type="number"
+            value={pullups}
+            onChange={(e) => setPullups(e.target.value)}
+            placeholder="e.g., 10"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4 mt-4">
+        <h3 className="font-medium mb-2">Strength Metrics (5RM)</h3>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label htmlFor="bench5rm" className="text-sm font-medium mb-1 block">
+            Bench 5RM (lbs)
+          </label>
+          <Input
+            id="bench5rm"
+            type="number"
+            value={bench5rm}
+            onChange={(e) => setBench5rm(e.target.value)}
+            placeholder="e.g., 185"
+          />
+        </div>
+        <div>
+          <label htmlFor="squat5rm" className="text-sm font-medium mb-1 block">
+            Squat 5RM (lbs)
+          </label>
+          <Input
+            id="squat5rm"
+            type="number"
+            value={squat5rm}
+            onChange={(e) => setSquat5rm(e.target.value)}
+            placeholder="e.g., 275"
+          />
+        </div>
+        <div>
+          <label htmlFor="deadlift5rm" className="text-sm font-medium mb-1 block">
+            Deadlift 5RM (lbs)
+          </label>
+          <Input
+            id="deadlift5rm"
+            type="number"
+            value={deadlift5rm}
+            onChange={(e) => setDeadlift5rm(e.target.value)}
+            placeholder="e.g., 315"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={onComplete}
+        >
+          Cancel
+        </Button>
+        <Button 
+          type="submit" 
+          disabled={loading}
+        >
+          {loading ? "Saving..." : "Save PT Scores"}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+export default PTScoreForm;

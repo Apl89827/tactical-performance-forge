@@ -1,7 +1,9 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, Dumbbell } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -20,8 +22,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [situps, setSitups] = useState("");
   const [pullups, setPullups] = useState("");
   const [name, setName] = useState("");
+  const [swimTime, setSwimTime] = useState("");
+  const [bench5rm, setBench5rm] = useState("");
+  const [squat5rm, setSquat5rm] = useState("");
+  const [deadlift5rm, setDeadlift5rm] = useState("");
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1 && !focusType) {
       toast.error("Please select your current focus");
       return;
@@ -40,7 +46,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     if (step < 4) {
       setStep(step + 1);
     } else {
-      completeOnboarding();
+      await completeOnboarding();
     }
   };
 
@@ -50,28 +56,61 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     }
   };
 
-  const completeOnboarding = () => {
-    // Save profile data
-    const profileData = {
-      first_name: name,
-      focusType,
-      selectionType: focusType === "Selection Candidate" ? selectionType : "",
-      selectionDate: focusType === "Selection Candidate" ? selectionDate : "",
-      height: parseInt(height, 10) || 0,
-      weight: parseInt(weight, 10) || 0,
-      ptScores: {
-        runTime,
-        pushups: parseInt(pushups, 10) || 0,
-        situps: parseInt(situps, 10) || 0,
-        pullups: parseInt(pullups, 10) || 0,
-      },
-    };
-    
-    localStorage.setItem("profileData", JSON.stringify(profileData));
-    
-    // Complete onboarding
-    onComplete();
-    navigate("/dashboard");
+  const completeOnboarding = async () => {
+    try {
+      // Get user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error("User not authenticated");
+        return;
+      }
+      
+      // Save profile data to Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: name,
+          height: parseInt(height, 10) || null,
+          weight: parseInt(weight, 10) || null,
+          swim_time: swimTime || null,
+          bench_5rm: parseInt(bench5rm, 10) || null,
+          squat_5rm: parseInt(squat5rm, 10) || null,
+          deadlift_5rm: parseInt(deadlift5rm, 10) || null
+        })
+        .eq('id', user.id);
+        
+      if (error) {
+        console.error("Error saving profile:", error);
+        toast.error("Failed to save profile data");
+        return;
+      }
+      
+      // Save remaining data to localStorage
+      const profileData = {
+        first_name: name,
+        focusType,
+        selectionType: focusType === "Selection Candidate" ? selectionType : "",
+        selectionDate: focusType === "Selection Candidate" ? selectionDate : "",
+        height: parseInt(height, 10) || 0,
+        weight: parseInt(weight, 10) || 0,
+        ptScores: {
+          runTime,
+          pushups: parseInt(pushups, 10) || 0,
+          situps: parseInt(situps, 10) || 0,
+          pullups: parseInt(pullups, 10) || 0,
+        },
+      };
+      
+      localStorage.setItem("profileData", JSON.stringify(profileData));
+      
+      // Complete onboarding
+      onComplete();
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Onboarding error:", error);
+      toast.error("Failed to complete onboarding");
+    }
   };
 
   return (
@@ -285,70 +324,147 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
         {step === 4 && (
           <div className="space-y-6 animate-fade-in">
-            <h1 className="text-2xl font-bold">Baseline PT Scores</h1>
+            <h1 className="text-2xl font-bold">Baseline Fitness Metrics</h1>
             <p className="text-muted-foreground">
               Your current physical readiness will help us establish a training baseline.
             </p>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="run-time" className="block text-sm font-medium">
-                  1.5 Mile Run Time (minutes)
-                </label>
-                <input
-                  id="run-time"
-                  type="text"
-                  value={runTime}
-                  onChange={(e) => setRunTime(e.target.value)}
-                  className="input-field"
-                  placeholder="e.g., 10:30"
-                />
-              </div>
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h2 className="font-medium flex items-center">
+                  <Dumbbell className="h-4 w-4 mr-2" />
+                  Cardio Performance
+                </h2>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="run-time" className="block text-sm font-medium">
+                      1.5 Mile Run Time
+                    </label>
+                    <input
+                      id="run-time"
+                      type="text"
+                      value={runTime}
+                      onChange={(e) => setRunTime(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 10:30"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="pushups" className="block text-sm font-medium">
-                  Maximum Push-ups in 2 Minutes
-                </label>
-                <input
-                  id="pushups"
-                  type="number"
-                  value={pushups}
-                  onChange={(e) => setPushups(e.target.value)}
-                  className="input-field"
-                  placeholder="e.g., 50"
-                />
+                  <div className="space-y-2">
+                    <label htmlFor="swim-time" className="block text-sm font-medium">
+                      500m Swim (50m splits)
+                    </label>
+                    <input
+                      id="swim-time"
+                      type="text"
+                      value={swimTime}
+                      onChange={(e) => setSwimTime(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 8:45"
+                    />
+                  </div>
+                </div>
               </div>
+              
+              <div className="space-y-4">
+                <h2 className="font-medium">Calisthenics</h2>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="pushups" className="block text-sm font-medium">
+                      Max Push-ups (2 min)
+                    </label>
+                    <input
+                      id="pushups"
+                      type="number"
+                      value={pushups}
+                      onChange={(e) => setPushups(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 50"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="situps" className="block text-sm font-medium">
-                  Maximum Sit-ups in 2 Minutes
-                </label>
-                <input
-                  id="situps"
-                  type="number"
-                  value={situps}
-                  onChange={(e) => setSitups(e.target.value)}
-                  className="input-field"
-                  placeholder="e.g., 60"
-                />
+                  <div className="space-y-2">
+                    <label htmlFor="situps" className="block text-sm font-medium">
+                      Max Sit-ups (2 min)
+                    </label>
+                    <input
+                      id="situps"
+                      type="number"
+                      value={situps}
+                      onChange={(e) => setSitups(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 60"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="pullups" className="block text-sm font-medium">
+                      Max Pull-ups
+                    </label>
+                    <input
+                      id="pullups"
+                      type="number"
+                      value={pullups}
+                      onChange={(e) => setPullups(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 10"
+                    />
+                  </div>
+                </div>
               </div>
+              
+              <div className="space-y-4">
+                <h2 className="font-medium">Strength (5 Rep Max)</h2>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="bench5rm" className="block text-sm font-medium">
+                      Bench (lbs)
+                    </label>
+                    <input
+                      id="bench5rm"
+                      type="number"
+                      value={bench5rm}
+                      onChange={(e) => setBench5rm(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 185"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="pullups" className="block text-sm font-medium">
-                  Maximum Pull-ups
-                </label>
-                <input
-                  id="pullups"
-                  type="number"
-                  value={pullups}
-                  onChange={(e) => setPullups(e.target.value)}
-                  className="input-field"
-                  placeholder="e.g., 10"
-                />
+                  <div className="space-y-2">
+                    <label htmlFor="squat5rm" className="block text-sm font-medium">
+                      Squat (lbs)
+                    </label>
+                    <input
+                      id="squat5rm"
+                      type="number"
+                      value={squat5rm}
+                      onChange={(e) => setSquat5rm(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 275"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="deadlift5rm" className="block text-sm font-medium">
+                      Deadlift (lbs)
+                    </label>
+                    <input
+                      id="deadlift5rm"
+                      type="number"
+                      value={deadlift5rm}
+                      onChange={(e) => setDeadlift5rm(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g., 315"
+                    />
+                  </div>
+                </div>
               </div>
               
               <p className="text-sm text-muted-foreground italic mt-2">
-                Note: You can skip these now and add them later in your profile.
+                Note: You can skip any of these metrics now and add them later in your profile.
               </p>
             </div>
           </div>

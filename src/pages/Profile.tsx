@@ -11,7 +11,8 @@ import {
   HelpCircle,
   Settings,
   FileEdit,
-  Calendar
+  Calendar,
+  Dumbbell
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,8 +21,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import ProgramCreator from "@/components/admin/ProgramCreator";
+import PTScoreForm from "@/components/profile/PTScoreForm";
 
 interface ProfileData {
   id: string;
@@ -39,6 +42,10 @@ interface ProfileData {
   };
   selectionType?: string | null;
   selectionDate?: string | null;
+  swim_time?: string | null;
+  bench_5rm?: number | null;
+  deadlift_5rm?: number | null;
+  squat_5rm?: number | null;
 }
 
 const Profile = () => {
@@ -50,6 +57,7 @@ const Profile = () => {
   // Edit states
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [isEditingSelection, setIsEditingSelection] = useState(false);
+  const [isEditingPTScores, setIsEditingPTScores] = useState(false);
   
   // Form states
   const [height, setHeight] = useState<number | undefined>(undefined);
@@ -97,8 +105,13 @@ const Profile = () => {
           last_name: profile.last_name || user.user_metadata.last_name,
           height: profile.height,
           weight: profile.weight,
+          swim_time: profile.swim_time,
+          bench_5rm: profile.bench_5rm,
+          deadlift_5rm: profile.deadlift_5rm,
+          squat_5rm: profile.squat_5rm,
           selectionType: selectionData.selectionType || null,
-          selectionDate: selectionData.selectionDate || null
+          selectionDate: selectionData.selectionDate || null,
+          ptScores: selectionData.ptScores || {}
         };
         
         setProfileData(combinedProfile);
@@ -193,7 +206,7 @@ const Profile = () => {
   };
   
   const updatePTScore = () => {
-    toast.info("PT score update feature coming soon");
+    setIsEditingPTScores(true);
   };
   
   const navigateToAdmin = () => {
@@ -231,7 +244,11 @@ const Profile = () => {
               {profileData?.first_name || ''} {profileData?.last_name || ''}
             </h1>
             <p className="text-muted-foreground">
-              {isAdmin ? 'Administrator' : 'Member'}
+              {isAdmin ? (
+                <Badge variant="secondary" className="mt-1">Administrator</Badge>
+              ) : (
+                'Member'
+              )}
             </p>
           </div>
         </div>
@@ -415,9 +432,55 @@ const Profile = () => {
                 <span>Weight</span>
                 <span className="font-medium">{profileData?.weight ? `${profileData.weight} lbs` : "--"}</span>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* PT Scores */}
+        <div className="bg-card rounded-lg border border-border mb-6">
+          <div className="flex justify-between items-center p-4 border-b border-border">
+            <h2 className="font-semibold flex items-center">
+              <Dumbbell size={16} className="mr-2" />
+              PT Scores
+            </h2>
+            <button 
+              className="p-1 rounded-full hover:bg-muted"
+              onClick={updatePTScore}
+            >
+              <FileEdit size={18} className="text-tactical-blue" />
+            </button>
+          </div>
+          
+          {isEditingPTScores ? (
+            <div className="p-4">
+              <PTScoreForm 
+                userId={profileData?.id || ''}
+                initialValues={{
+                  runTime: profileData?.ptScores?.runTime,
+                  pushups: profileData?.ptScores?.pushups,
+                  situps: profileData?.ptScores?.situps,
+                  pullups: profileData?.ptScores?.pullups,
+                  swimTime: profileData?.swim_time || '',
+                  bench5rm: profileData?.bench_5rm || undefined,
+                  deadlift5rm: profileData?.deadlift_5rm || undefined,
+                  squat5rm: profileData?.squat_5rm || undefined
+                }}
+                onComplete={() => {
+                  setIsEditingPTScores(false);
+                  // Refetch profile data
+                  window.location.reload();
+                }}
+              />
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
               <div className="flex justify-between items-center p-4">
                 <span>1.5 Mile Run</span>
                 <span className="font-medium">{profileData?.ptScores?.runTime || "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>500m Swim</span>
+                <span className="font-medium">{profileData?.swim_time || "--"}</span>
               </div>
               <div className="flex justify-between items-center p-4">
                 <span>Push-ups</span>
@@ -431,17 +494,23 @@ const Profile = () => {
                 <span>Pull-ups</span>
                 <span className="font-medium">{profileData?.ptScores?.pullups || "--"}</span>
               </div>
+              <div className="p-4 border-t border-border">
+                <h3 className="font-medium mb-2">Strength Metrics (5RM)</h3>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Bench Press</span>
+                <span className="font-medium">{profileData?.bench_5rm ? `${profileData.bench_5rm} lbs` : "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Squat</span>
+                <span className="font-medium">{profileData?.squat_5rm ? `${profileData.squat_5rm} lbs` : "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Deadlift</span>
+                <span className="font-medium">{profileData?.deadlift_5rm ? `${profileData.deadlift_5rm} lbs` : "--"}</span>
+              </div>
             </div>
           )}
-          
-          <div className="p-4">
-            <Button 
-              className="w-full" 
-              onClick={updatePTScore}
-            >
-              Update PT Scores
-            </Button>
-          </div>
         </div>
         
         {/* Settings */}

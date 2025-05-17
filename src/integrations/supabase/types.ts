@@ -45,31 +45,43 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bench_5rm: number | null
           created_at: string
+          deadlift_5rm: number | null
           first_name: string | null
           height: number | null
           id: string
           last_name: string | null
+          squat_5rm: number | null
+          swim_time: string | null
           updated_at: string
           weight: number | null
         }
         Insert: {
           avatar_url?: string | null
+          bench_5rm?: number | null
           created_at?: string
+          deadlift_5rm?: number | null
           first_name?: string | null
           height?: number | null
           id: string
           last_name?: string | null
+          squat_5rm?: number | null
+          swim_time?: string | null
           updated_at?: string
           weight?: number | null
         }
         Update: {
           avatar_url?: string | null
+          bench_5rm?: number | null
           created_at?: string
+          deadlift_5rm?: number | null
           first_name?: string | null
           height?: number | null
           id?: string
           last_name?: string | null
+          squat_5rm?: number | null
+          swim_time?: string | null
           updated_at?: string
           weight?: number | null
         }
