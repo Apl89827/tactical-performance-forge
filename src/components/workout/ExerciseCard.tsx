@@ -1,7 +1,8 @@
 
 import React, { useState } from "react";
-import { Check, ChevronDown, ChevronUp, Play, Info } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Play, Info, Percent } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface ExerciseSet {
   setNumber: number;
@@ -20,6 +21,9 @@ interface ExerciseProps {
   restTime: number;
   video: string;
   isActive: boolean;
+  isBodyweightPercentage?: boolean;
+  bodyweightPercentage?: number;
+  userWeight?: number;
   onSetComplete: (exerciseIndex: number, setIndex: number, isCompleted: boolean) => void;
   onSetDataChange: (exerciseIndex: number, setIndex: number, field: string, value: any) => void;
   onRestTimerStart: (seconds: number) => void;
@@ -34,6 +38,9 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
   restTime,
   video,
   isActive,
+  isBodyweightPercentage,
+  bodyweightPercentage,
+  userWeight,
   onSetComplete,
   onSetDataChange,
   onRestTimerStart,
@@ -49,6 +56,18 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
     e.stopPropagation();
     setShowNotes(!showNotes);
   };
+  
+  // Calculate the recommended weight if it's based on body weight percentage
+  const calculateRecommendedWeight = () => {
+    if (isBodyweightPercentage && bodyweightPercentage && userWeight) {
+      // Calculate weight and round to nearest 5
+      const exactWeight = (userWeight * bodyweightPercentage) / 100;
+      return Math.round(exactWeight / 5) * 5;
+    }
+    return null;
+  };
+
+  const recommendedWeight = calculateRecommendedWeight();
   
   return (
     <div 
@@ -75,6 +94,9 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
             <h3 className="font-medium">{name}</h3>
             <p className="text-xs text-muted-foreground">
               {sets.length} sets • {typeof sets[0].targetReps === 'number' ? `${sets[0].targetReps} reps` : sets[0].targetReps}
+              {isBodyweightPercentage && bodyweightPercentage && (
+                <span> • <Badge variant="success" className="ml-1">{bodyweightPercentage}% BW</Badge></span>
+              )}
             </p>
           </div>
         </div>
@@ -117,6 +139,17 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
             </div>
           </div>
           
+          {/* Bodyweight percentage info */}
+          {isBodyweightPercentage && bodyweightPercentage && recommendedWeight && (
+            <div className="mb-4 p-3 bg-tactical-blue/10 rounded-md flex items-center">
+              <Percent className="h-5 w-5 text-tactical-blue mr-2" />
+              <div>
+                <p className="text-sm font-medium">Recommended weight: {recommendedWeight} lbs</p>
+                <p className="text-xs text-muted-foreground">Based on {bodyweightPercentage}% of your body weight</p>
+              </div>
+            </div>
+          )}
+          
           {/* Sets */}
           <div className="mb-4">
             <h4 className="text-sm font-medium mb-3">Sets:</h4>
@@ -139,10 +172,10 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
                       <div className="relative">
                         <input
                           type="number"
-                          value={set.weight || ""}
+                          value={set.weight !== null ? set.weight : recommendedWeight || ''}
                           onChange={(e) => onSetDataChange(index, setIndex, "weight", e.target.value)}
                           className="w-16 p-2 text-center rounded bg-background border border-border"
-                          placeholder="lbs"
+                          placeholder={recommendedWeight ? recommendedWeight.toString() : "lbs"}
                         />
                         <span className="absolute right-2 top-2 text-xs text-muted-foreground pointer-events-none">
                           lbs

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   PlusCircle, 
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Exercise {
   id?: string;
@@ -33,6 +33,8 @@ interface Exercise {
   reps: number;
   notes?: string;
   order_position: number;
+  is_bodyweight_percentage?: boolean;
+  bodyweight_percentage?: number;
 }
 
 interface Program {
@@ -116,7 +118,9 @@ const ProgramCreator = () => {
       movement_name: "",
       sets: 3,
       reps: 10,
-      order_position: currentProgram.exercises.length
+      order_position: currentProgram.exercises.length,
+      is_bodyweight_percentage: false,
+      bodyweight_percentage: 45
     };
     
     setCurrentProgram({
@@ -238,7 +242,9 @@ const ProgramCreator = () => {
         sets: exercise.sets,
         reps: exercise.reps,
         notes: exercise.notes,
-        order_position: index
+        order_position: index,
+        is_bodyweight_percentage: exercise.is_bodyweight_percentage || false,
+        bodyweight_percentage: exercise.bodyweight_percentage || null
       }));
       
       const { error: exercisesError } = await supabase
@@ -374,6 +380,46 @@ const ProgramCreator = () => {
                             </div>
                           </div>
                           
+                          <div className="flex items-start gap-2 mb-2">
+                            <Checkbox 
+                              id={`bodyweight-percentage-${index}`}
+                              checked={exercise.is_bodyweight_percentage || false}
+                              onCheckedChange={(checked) => {
+                                updateExercise(index, 'is_bodyweight_percentage', checked);
+                                if (!exercise.bodyweight_percentage) {
+                                  updateExercise(index, 'bodyweight_percentage', 45);
+                                }
+                              }}
+                            />
+                            <div className="grid gap-1.5 leading-none">
+                              <Label 
+                                htmlFor={`bodyweight-percentage-${index}`}
+                                className="text-xs"
+                              >
+                                Calculate weight as % of body weight
+                              </Label>
+                            </div>
+                          </div>
+
+                          {exercise.is_bodyweight_percentage && (
+                            <div className="mb-2">
+                              <div className="flex gap-2 items-center">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="200"
+                                  value={exercise.bodyweight_percentage || 45}
+                                  onChange={(e) => updateExercise(index, 'bodyweight_percentage', parseInt(e.target.value) || 45)}
+                                  className="w-20"
+                                />
+                                <span className="text-sm text-muted-foreground">% of body weight</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Weight will be automatically calculated for each athlete
+                              </p>
+                            </div>
+                          )}
+                          
                           <Textarea
                             value={exercise.notes || ''}
                             onChange={(e) => updateExercise(index, 'notes', e.target.value)}
@@ -458,6 +504,13 @@ const ProgramCreator = () => {
                               <div className="text-sm text-muted-foreground">
                                 {exercise.sets} sets × {exercise.reps} reps
                               </div>
+                              {exercise.is_bodyweight_percentage && (
+                                <div className="text-sm">
+                                  <Badge variant="success" className="mt-1">
+                                    {exercise.bodyweight_percentage}% of body weight
+                                  </Badge>
+                                </div>
+                              )}
                               {exercise.notes && (
                                 <div className="text-xs mt-1">{exercise.notes}</div>
                               )}
