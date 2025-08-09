@@ -21,6 +21,8 @@ import Library from "./pages/Library";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 // Create auth context
 export const AuthContext = createContext<{
@@ -136,6 +138,9 @@ const App = () => {
               <Route path="/" element={session ? <Navigate to="/dashboard" /> : <Welcome />} />
               <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
               <Route path="/register" element={session ? <Navigate to="/dashboard" /> : <Register />} />
+              <Route path="/forgot-password" element={session ? <Navigate to="/dashboard" /> : <ForgotPassword />} />
+              {/* Reset page should be accessible regardless to handle recovery session */}
+              <Route path="/reset-password" element={<ResetPassword />} />
               
               {/* Authentication check for onboarding */}
               <Route 
