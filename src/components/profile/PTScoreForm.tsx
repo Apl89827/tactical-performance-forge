@@ -36,8 +36,8 @@ const PTScoreForm: React.FC<PTScoreFormProps> = ({ userId, initialValues, onComp
     setLoading(true);
 
     try {
-      // Store PT scores in the database
-      const { error } = await supabase
+      // Store PT scores in the database (strength + swim on profiles)
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           swim_time: swimTime,
@@ -47,10 +47,22 @@ const PTScoreForm: React.FC<PTScoreFormProps> = ({ userId, initialValues, onComp
         })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      // Store legacy PT scores in localStorage for now
-      // (These could be moved to the database in a future update)
+      // Insert a PT metrics snapshot (baseline/progress)
+      const { error: metricsError } = await supabase
+        .from('pt_metrics')
+        .insert({
+          user_id: userId,
+          run_time: runTime || null,
+          pushups: pushups ? parseInt(pushups.toString()) : null,
+          situps: situps ? parseInt(situps.toString()) : null,
+          pullups: pullups ? parseInt(pullups.toString()) : null,
+        });
+
+      if (metricsError) throw metricsError;
+
+      // Maintain legacy localStorage for backwards compatibility
       const ptScores = {
         runTime,
         pushups: pushups ? parseInt(pushups.toString()) : 0,

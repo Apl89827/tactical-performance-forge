@@ -94,7 +94,27 @@ const Profile = () => {
           
         if (rolesError) throw rolesError;
         
-        // Get stored selection data
+        // Fetch latest PT metrics from DB (if any)
+        const { data: latestMetrics, error: metricsError } = await supabase
+          .from('pt_metrics')
+          .select('run_time, pushups, situps, pullups, recorded_at')
+          .eq('user_id', user.id)
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (metricsError) {
+          console.warn('Failed to load PT metrics:', metricsError);
+        }
+        
+        const ptScoresFromDb = latestMetrics ? {
+          runTime: latestMetrics.run_time || undefined,
+          pushups: latestMetrics.pushups || undefined,
+          situps: latestMetrics.situps || undefined,
+          pullups: latestMetrics.pullups || undefined,
+        } : undefined;
+        
+        // Get stored selection/local data
         const storedData = localStorage.getItem("profileData");
         const selectionData = storedData ? JSON.parse(storedData) : {};
         
@@ -111,7 +131,7 @@ const Profile = () => {
           squat_5rm: profile.squat_5rm,
           selectionType: selectionData.selectionType || null,
           selectionDate: selectionData.selectionDate || null,
-          ptScores: selectionData.ptScores || {}
+          ptScores: ptScoresFromDb ?? (selectionData.ptScores || {})
         };
         
         setProfileData(combinedProfile);

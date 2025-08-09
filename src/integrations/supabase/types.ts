@@ -92,6 +92,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pt_metrics: {
+        Row: {
+          id: string
+          pullups: number | null
+          pushups: number | null
+          recorded_at: string
+          run_time: string | null
+          situps: number | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          pullups?: number | null
+          pushups?: number | null
+          recorded_at?: string
+          run_time?: string | null
+          situps?: number | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          pullups?: number | null
+          pushups?: number | null
+          recorded_at?: string
+          run_time?: string | null
+          situps?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_program_assignments: {
         Row: {
           assigned_at: string
@@ -153,8 +183,10 @@ export type Database = {
       }
       workout_exercises: {
         Row: {
+          bodyweight_percentage: number | null
           created_at: string
           id: string
+          is_bodyweight_percentage: boolean
           movement_name: string
           notes: string | null
           order_position: number
@@ -163,8 +195,10 @@ export type Database = {
           sets: number
         }
         Insert: {
+          bodyweight_percentage?: number | null
           created_at?: string
           id?: string
+          is_bodyweight_percentage?: boolean
           movement_name: string
           notes?: string | null
           order_position?: number
@@ -173,8 +207,10 @@ export type Database = {
           sets?: number
         }
         Update: {
+          bodyweight_percentage?: number | null
           created_at?: string
           id?: string
+          is_bodyweight_percentage?: boolean
           movement_name?: string
           notes?: string | null
           order_position?: number

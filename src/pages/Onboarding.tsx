@@ -67,7 +67,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       }
       
       // Save profile data to Supabase
-      const { error } = await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           first_name: name,
@@ -80,10 +80,24 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         })
         .eq('id', user.id);
         
-      if (error) {
-        console.error("Error saving profile:", error);
+      if (profileError) {
+        console.error("Error saving profile:", profileError);
         toast.error("Failed to save profile data");
         return;
+      }
+
+      // Save baseline PT metrics snapshot
+      const { error: metricsError } = await supabase
+        .from('pt_metrics')
+        .insert({
+          user_id: user.id,
+          run_time: runTime || null,
+          pushups: pushups ? parseInt(pushups, 10) : null,
+          situps: situps ? parseInt(situps, 10) : null,
+          pullups: pullups ? parseInt(pullups, 10) : null,
+        });
+      if (metricsError) {
+        console.warn('Onboarding: failed to insert baseline PT metrics', metricsError);
       }
       
       // Save remaining data to localStorage
