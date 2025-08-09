@@ -15,7 +15,7 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -23,6 +23,17 @@ const Login = () => {
       if (error) {
         toast.error(error.message);
       } else {
+        // Ensure a profile row exists for this user (Phase 0 bootstrap)
+        const userId = data.user?.id;
+        if (userId) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({ id: userId }, { onConflict: 'id', ignoreDuplicates: true });
+          if (profileError) {
+            console.warn('Profile upsert failed:', profileError);
+          }
+        }
+
         toast.success("Signed in successfully");
         navigate("/dashboard");
       }
