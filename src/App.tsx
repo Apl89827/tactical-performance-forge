@@ -106,14 +106,27 @@ const App = () => {
     }
   };
   
-  const checkOnboardingStatus = () => {
-    // For simplicity, we'll use localStorage for onboarding status
-    const onboardingStatus = localStorage.getItem("hasCompletedOnboarding") === "true";
-    setHasCompletedOnboarding(onboardingStatus);
+  const checkOnboardingStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setHasCompletedOnboarding(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (error) throw error;
+      setHasCompletedOnboarding(!!data?.has_completed_onboarding);
+    } catch (err) {
+      console.warn('Failed to check onboarding status:', err);
+      setHasCompletedOnboarding(false);
+    }
   };
 
   const completeOnboarding = () => {
-    localStorage.setItem("hasCompletedOnboarding", "true");
     setHasCompletedOnboarding(true);
   };
   

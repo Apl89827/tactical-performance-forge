@@ -34,6 +34,40 @@ const Login = () => {
           }
         }
 
+        // Migrate any legacy localStorage onboarding data into Supabase
+        try {
+          if (userId) {
+            const profileDataRaw = localStorage.getItem('profileData');
+            const hasCompleted = localStorage.getItem('hasCompletedOnboarding') === 'true';
+            let update: Record<string, any> = {};
+            if (profileDataRaw) {
+              const pd = JSON.parse(profileDataRaw || '{}');
+              update = {
+                first_name: pd.first_name ?? null,
+                height: typeof pd.height === 'number' ? pd.height : null,
+                weight: typeof pd.weight === 'number' ? pd.weight : null,
+                focus_type: pd.focusType ?? null,
+                selection_type: pd.focusType === 'Selection Candidate' ? (pd.selectionType ?? null) : null,
+                selection_date: pd.focusType === 'Selection Candidate' ? (pd.selectionDate || null) : null,
+              };
+              if (hasCompleted) update.has_completed_onboarding = true;
+            } else if (hasCompleted) {
+              update = { has_completed_onboarding: true };
+            }
+            if (Object.keys(update).length > 0) {
+              const { error: migrateErr } = await supabase
+                .from('profiles')
+                .update(update)
+                .eq('id', userId);
+              if (migrateErr) console.warn('Failed migrating onboarding data:', migrateErr);
+              localStorage.removeItem('profileData');
+              localStorage.removeItem('hasCompletedOnboarding');
+            }
+          }
+        } catch (e) {
+          console.warn('Onboarding migration error:', e);
+        }
+
         toast.success("Signed in successfully");
         navigate("/dashboard");
       }

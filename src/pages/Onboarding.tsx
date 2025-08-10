@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Check, Dumbbell } from "lucide-react";
@@ -26,6 +26,38 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [bench5rm, setBench5rm] = useState("");
   const [squat5rm, setSquat5rm] = useState("");
   const [deadlift5rm, setDeadlift5rm] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (error) throw error;
+        if (isMounted && data) {
+          const d: any = data as any;
+          setName(d.first_name ?? "");
+          setHeight(d.height?.toString() ?? "");
+          setWeight(d.weight?.toString() ?? "");
+          setSwimTime(d.swim_time ?? "");
+          setBench5rm(d.bench_5rm?.toString() ?? "");
+          setSquat5rm(d.squat_5rm?.toString() ?? "");
+          setDeadlift5rm(d.deadlift_5rm?.toString() ?? "");
+          setFocusType(d.focus_type ?? "");
+          setSelectionType(d.selection_type ?? "");
+          setSelectionDate((d.selection_date as string) ?? "");
+        }
+      } catch (err) {
+        console.warn('Failed to preload profile into onboarding:', err);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
 
   const handleNext = async () => {
     if (step === 1 && !focusType) {
@@ -70,14 +102,18 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          first_name: name,
+          first_name: name || null,
           height: parseInt(height, 10) || null,
           weight: parseInt(weight, 10) || null,
           swim_time: swimTime || null,
           bench_5rm: parseInt(bench5rm, 10) || null,
           squat_5rm: parseInt(squat5rm, 10) || null,
-          deadlift_5rm: parseInt(deadlift5rm, 10) || null
-        })
+          deadlift_5rm: parseInt(deadlift5rm, 10) || null,
+          focus_type: focusType || null,
+          selection_type: focusType === "Selection Candidate" ? (selectionType || null) : null,
+          selection_date: focusType === "Selection Candidate" && selectionDate ? selectionDate : null,
+          has_completed_onboarding: true
+        } as any)
         .eq('id', user.id);
         
       if (profileError) {

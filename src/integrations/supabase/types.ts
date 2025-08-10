@@ -54,9 +54,13 @@ export type Database = {
           created_at: string
           deadlift_5rm: number | null
           first_name: string | null
+          focus_type: string | null
+          has_completed_onboarding: boolean
           height: number | null
           id: string
           last_name: string | null
+          selection_date: string | null
+          selection_type: string | null
           squat_5rm: number | null
           swim_time: string | null
           updated_at: string
@@ -68,9 +72,13 @@ export type Database = {
           created_at?: string
           deadlift_5rm?: number | null
           first_name?: string | null
+          focus_type?: string | null
+          has_completed_onboarding?: boolean
           height?: number | null
           id: string
           last_name?: string | null
+          selection_date?: string | null
+          selection_type?: string | null
           squat_5rm?: number | null
           swim_time?: string | null
           updated_at?: string
@@ -82,9 +90,13 @@ export type Database = {
           created_at?: string
           deadlift_5rm?: number | null
           first_name?: string | null
+          focus_type?: string | null
+          has_completed_onboarding?: boolean
           height?: number | null
           id?: string
           last_name?: string | null
+          selection_date?: string | null
+          selection_type?: string | null
           squat_5rm?: number | null
           swim_time?: string | null
           updated_at?: string
