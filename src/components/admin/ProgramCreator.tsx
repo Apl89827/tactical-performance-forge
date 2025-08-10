@@ -25,6 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import ProgramImporter from "./ProgramImporter";
 
 interface Exercise {
   id?: string;
@@ -298,10 +299,26 @@ const ProgramCreator = () => {
       <div className="flex justify-between items-center pb-4 border-b">
         <h2 className="text-xl font-bold">Workout Programs</h2>
         {!isEditing && (
-          <Button onClick={createNewProgram} className="flex items-center">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Program
-          </Button>
+          <div className="flex items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center">
+                  Import
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Import Program Workouts (JSON)</DialogTitle>
+                </DialogHeader>
+                <ProgramImporter onImported={fetchPrograms} />
+              </DialogContent>
+            </Dialog>
+
+            <Button onClick={createNewProgram} className="flex items-center">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New Program
+            </Button>
+          </div>
         )}
       </div>
 
