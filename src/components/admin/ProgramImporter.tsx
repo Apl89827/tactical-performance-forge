@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -79,11 +80,10 @@ const ProgramImporter: React.FC<ProgramImporterProps> = ({ onImported }) => {
     try {
       const parsed: RawInput = JSON.parse(rawJson);
       const shards = Array.isArray((parsed as any).programs)
-        ? (parsed as any).programs as RawProgramShard[]
+        ? ((parsed as any).programs as RawProgramShard[])
         : [parsed as RawProgramShard];
 
-      // Try to infer a name to prefill "new program" title
-      const firstWithName = shards.find(s => s?.name) || shards[0];
+      const firstWithName = shards.find((s) => s?.name) || shards[0];
       return firstWithName?.name || "";
     } catch {
       return "";
@@ -91,7 +91,6 @@ const ProgramImporter: React.FC<ProgramImporterProps> = ({ onImported }) => {
   }, [rawJson]);
 
   const handleImport = async () => {
-    // Admin-only operations will be enforced by RLS.
     setLoading(true);
     console.log("[Importer] Starting import...");
 
@@ -133,98 +132,94 @@ const ProgramImporter: React.FC<ProgramImporterProps> = ({ onImported }) => {
         }
       }
 
-      // Normalize input to an array of "shards", each with workouts
+      // Normalize input to an array of program shards
       const shards: RawProgramShard[] = Array.isArray((parsed as any)?.programs)
         ? ((parsed as any).programs as RawProgramShard[])
         : [parsed as RawProgramShard];
 
       // Flatten workouts across shards
-      const allWorkouts: RawWorkout[] = shards.flatMap(s => s.workouts || []);
+      const allWorkouts: RawWorkout[] = shards.flatMap((s) => s.workouts || []);
       if (allWorkouts.length === 0) {
         toast.error("No workouts found in the provided JSON.");
         setLoading(false);
         return;
       }
 
-      let importedCount = 0;
+      console.log("[Importer] Total workouts detected:", allWorkouts.length);
 
-      // Process each workout sequentially to keep things simple
-      for (const w of allWorkouts) {
-        const day = typeof w.day === "number" && !Number.isNaN(w.day) ? w.day : importedCount + 1;
-        const workoutPayload = {
-          program_id: targetProgramId,
-          day,
-          name: w.name || w.header || `Day ${day}`,
-          header: w.header || null,
-          session_type: w.session_type || null,
-          notes: w.notes || null,
-          external_id: w.workout_id || null,
-        };
+      // Build a single flat list of exercises mapped to workout_exercises schema
+      const allItems = allWorkouts.flatMap((w, wIdx) => {
+        const day =
+          typeof w.day === "number" && !Number.isNaN(w.day) ? w.day : wIdx + 1;
 
-        // Upsert workout per unique (program_id, day)
-        const { data: upsertedWorkout, error: upsertErr } = await supabase
-          .from("program_workouts")
-          .upsert(workoutPayload, { onConflict: "program_id,day" })
-          .select()
-          .single();
+        return (w.exercises || []).map((ex, idx) => {
+          // Ensure stable ordering across days using day*100 + position
+          const position =
+            (typeof ex.order === "number" && !Number.isNaN(ex.order)
+              ? ex.order
+              : idx + 1) + day * 100;
 
-        if (upsertErr || !upsertedWorkout) {
-          console.error("[Importer] Workout upsert failed", upsertErr);
-          toast.error(`Failed to save workout for day ${day}`);
-          setLoading(false);
-          return;
-        }
+          const movement =
+            (ex.exercise_id && ex.exercise_id.trim()) ||
+            (w.name ? `${w.name} ${idx + 1}` : `Exercise ${idx + 1}`);
 
-        const workoutId = upsertedWorkout.id as string;
-
-        // Clear any existing items to keep ordering consistent
-        const { error: delErr } = await supabase
-          .from("program_workout_items")
-          .delete()
-          .eq("workout_id", workoutId);
-
-        if (delErr) {
-          console.error("[Importer] Failed to clear old items", delErr);
-          toast.error("Failed to clear previous workout items");
-          setLoading(false);
-          return;
-        }
-
-        const items = (w.exercises || []).map((ex, idx) => {
-          const order_position = typeof ex.order === "number" && !Number.isNaN(ex.order)
-            ? ex.order
-            : idx + 1;
+          const notePrefix = w.name ? `Day ${day} - ${w.name}: ` : `Day ${day}: `;
+          const combinedNotes = [
+            notePrefix.trim(),
+            ex.prescribed || "",
+            ex.notes || "",
+          ]
+            .filter(Boolean)
+            .join(" ");
 
           return {
-            workout_id: workoutId,
-            order_position,
-            exercise_code: ex.exercise_id || null,
-            // Do NOT set external_id due to duplicates in provided JSON ("ex_" appears multiple times)
-            movement_name: null,
-            prescribed: ex.prescribed || null,
-            notes: ex.notes || null,
+            program_id: targetProgramId,
+            order_position: position,
+            movement_name: movement,
+            notes: combinedNotes || null,
+            // Defaults in DB will handle sets/reps/is_bodyweight_percentage
             is_bodyweight_percentage: false,
             bodyweight_percentage: null,
           };
         });
+      });
 
-        if (items.length > 0) {
-          const { error: itemsErr } = await supabase
-            .from("program_workout_items")
-            .insert(items);
-
-          if (itemsErr) {
-            console.error("[Importer] Items insert failed", itemsErr);
-            toast.error(`Failed to save items for day ${day}`);
-            setLoading(false);
-            return;
-          }
-        }
-
-        importedCount += 1;
+      if (allItems.length === 0) {
+        toast.error("No exercises found in the provided JSON.");
+        setLoading(false);
+        return;
       }
 
-      toast.success(`Imported ${importedCount} workout${importedCount === 1 ? "" : "s"} successfully`);
+      console.log("[Importer] Prepared items to insert:", allItems.length);
+
+      // Clear existing items for this program to avoid duplicates
+      const { error: delErr } = await supabase
+        .from("workout_exercises")
+        .delete()
+        .eq("program_id", targetProgramId);
+
+      if (delErr) {
+        console.error("[Importer] Failed to clear existing items", delErr);
+        toast.error("Failed to clear previous exercises for this program");
+        setLoading(false);
+        return;
+      }
+
+      // Insert all items in one go
+      const { error: insertErr } = await supabase
+        .from("workout_exercises")
+        .insert(allItems);
+
+      if (insertErr) {
+        console.error("[Importer] Failed to insert exercises", insertErr);
+        toast.error("Failed to save imported exercises");
+        setLoading(false);
+        return;
+      }
+
+      toast.success(
+        `Imported ${allItems.length} exercise${allItems.length === 1 ? "" : "s"} successfully`
+      );
       console.log("[Importer] Import complete");
 
       // Refresh local programs list (useful if a new program was created)
@@ -274,7 +269,9 @@ const ProgramImporter: React.FC<ProgramImporterProps> = ({ onImported }) => {
           >
             {programs.length === 0 && <option value="">No programs found</option>}
             {programs.map((p) => (
-              <option key={p.id} value={p.id}>{p.title}</option>
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
             ))}
           </select>
         </div>
