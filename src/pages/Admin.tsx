@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MobileLayout from "../components/layouts/MobileLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +13,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import RoleManager from "@/components/admin/RoleManager";
 
 interface Content {
   id: string;
@@ -253,209 +254,222 @@ const Admin = () => {
   }
   
   return (
-    <MobileLayout title={isAddingContent ? (isEditingContent ? "Edit Content" : "Add Content") : "Content Management"}>
+    <MobileLayout title={isAddingContent ? (isEditingContent ? "Edit Content" : "Add Content") : "Admin"}>
       <div className="mobile-safe-area">
-        {!isAddingContent ? (
-          <>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">All Content</h2>
-              <button
-                onClick={() => setIsAddingContent(true)}
-                className="btn-primary py-1 px-2 h-9 flex items-center"
-              >
-                <Plus size={16} className="mr-1" />
-                Add New
-              </button>
-            </div>
-            
-            {loading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin h-8 w-8 border-4 border-tactical-blue border-t-transparent rounded-full"></div>
-              </div>
-            ) : contents.length === 0 ? (
-              <div className="text-center py-8 bg-card border border-border rounded-lg">
-                <p className="text-muted-foreground">No content found. Add your first content item!</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Image</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {contents.map((content) => (
-                      <TableRow key={content.id}>
-                        <TableCell className="font-medium">{content.title}</TableCell>
-                        <TableCell>{content.content_type}</TableCell>
-                        <TableCell>
-                          {content.image_url ? (
-                            <img
-                              src={content.image_url}
-                              alt={content.title}
-                              className="h-10 w-10 object-cover rounded"
-                            />
-                          ) : (
-                            <span className="text-muted-foreground">None</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <button
-                            onClick={() => editContent(content)}
-                            className="p-1 text-blue-500 hover:text-blue-700 mr-2"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => deleteContent(content.id)}
-                            className="p-1 text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </>
-        ) : (
-          <div>
-            <button 
-              onClick={cancelAddEdit}
-              className="flex items-center text-sm mb-4"
-            >
-              <ArrowLeft size={16} className="mr-1" />
-              Back to content list
-            </button>
-            
-            <form onSubmit={saveContent} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="title" className="block text-sm font-medium">
-                  Title
-                </label>
-                <input
-                  id="title"
-                  name="title"
-                  type="text"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  className="input-field"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="content_type" className="block text-sm font-medium">
-                  Content Type
-                </label>
-                <select
-                  id="content_type"
-                  name="content_type"
-                  value={formData.content_type}
-                  onChange={handleInputChange}
-                  className="input-field"
-                  required
-                >
-                  <option value="workout">Workout</option>
-                  <option value="article">Article</option>
-                  <option value="nutrition">Nutrition</option>
-                  <option value="announcement">Announcement</option>
-                </select>
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="content" className="block text-sm font-medium">
-                  Content
-                </label>
-                <textarea
-                  id="content"
-                  name="content"
-                  value={formData.content}
-                  onChange={handleInputChange}
-                  className="input-field min-h-[150px]"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">
-                  Image
-                </label>
-                {formData.image_url && (
-                  <div className="mb-2">
-                    <img
-                      src={formData.image_url}
-                      alt="Content preview"
-                      className="h-32 w-auto object-cover rounded"
-                    />
+        <Tabs defaultValue="content" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="roles">Roles</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="content">
+            {!isAddingContent ? (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold">All Content</h2>
+                  <button
+                    onClick={() => setIsAddingContent(true)}
+                    className="btn-primary py-1 px-2 h-9 flex items-center"
+                  >
+                    <Plus size={16} className="mr-1" />
+                    Add New
+                  </button>
+                </div>
+                
+                {loading ? (
+                  <div className="flex justify-center p-8">
+                    <div className="animate-spin h-8 w-8 border-4 border-tactical-blue border-t-transparent rounded-full"></div>
+                  </div>
+                ) : contents.length === 0 ? (
+                  <div className="text-center py-8 bg-card border border-border rounded-lg">
+                    <p className="text-muted-foreground">No content found. Add your first content item!</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Image</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {contents.map((content) => (
+                          <TableRow key={content.id}>
+                            <TableCell className="font-medium">{content.title}</TableCell>
+                            <TableCell>{content.content_type}</TableCell>
+                            <TableCell>
+                              {content.image_url ? (
+                                <img
+                                  src={content.image_url}
+                                  alt={content.title}
+                                  className="h-10 w-10 object-cover rounded"
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">None</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <button
+                                onClick={() => editContent(content)}
+                                className="p-1 text-blue-500 hover:text-blue-700 mr-2"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => deleteContent(content.id)}
+                                className="p-1 text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
-                <div className="flex items-center">
-                  <label 
-                    htmlFor="image"
-                    className="cursor-pointer flex items-center bg-secondary px-4 py-2 rounded hover:bg-secondary/80"
-                  >
-                    <Image size={16} className="mr-2" />
-                    {file ? file.name : "Choose Image"}
-                  </label>
-                  <input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  {file && (
+              </>
+            ) : (
+              <div>
+                <button 
+                  onClick={cancelAddEdit}
+                  className="flex items-center text-sm mb-4"
+                >
+                  <ArrowLeft size={16} className="mr-1" />
+                  Back to content list
+                </button>
+                
+                <form onSubmit={saveContent} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="title" className="block text-sm font-medium">
+                      Title
+                    </label>
+                    <input
+                      id="title"
+                      name="title"
+                      type="text"
+                      value={formData.title}
+                      onChange={handleInputChange}
+                      className="input-field"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="content_type" className="block text-sm font-medium">
+                      Content Type
+                    </label>
+                    <select
+                      id="content_type"
+                      name="content_type"
+                      value={formData.content_type}
+                      onChange={handleInputChange}
+                      className="input-field"
+                      required
+                    >
+                      <option value="workout">Workout</option>
+                      <option value="article">Article</option>
+                      <option value="nutrition">Nutrition</option>
+                      <option value="announcement">Announcement</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="content" className="block text-sm font-medium">
+                      Content
+                    </label>
+                    <textarea
+                      id="content"
+                      name="content"
+                      value={formData.content}
+                      onChange={handleInputChange}
+                      className="input-field min-h-[150px]"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium">
+                      Image
+                    </label>
+                    {formData.image_url && (
+                      <div className="mb-2">
+                        <img
+                          src={formData.image_url}
+                          alt="Content preview"
+                          className="h-32 w-auto object-cover rounded"
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center">
+                      <label 
+                        htmlFor="image"
+                        className="cursor-pointer flex items-center bg-secondary px-4 py-2 rounded hover:bg-secondary/80"
+                      >
+                        <Image size={16} className="mr-2" />
+                        {file ? file.name : "Choose Image"}
+                      </label>
+                      <input
+                        id="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      {file && (
+                        <button
+                          type="button"
+                          onClick={() => setFile(null)}
+                          className="ml-2 p-1 text-red-500 hover:text-red-700"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => setFile(null)}
-                      className="ml-2 p-1 text-red-500 hover:text-red-700"
+                      onClick={cancelAddEdit}
+                      className="btn-outline"
+                      disabled={loading}
                     >
-                      <X size={16} />
+                      Cancel
                     </button>
-                  )}
-                </div>
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </span>
+                      ) : (
+                        <>
+                          <Check size={16} className="mr-1" />
+                          {isEditingContent ? "Update" : "Save"}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
-              
-              <div className="flex space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={cancelAddEdit}
-                  className="btn-outline"
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Saving...
-                    </span>
-                  ) : (
-                    <>
-                      <Check size={16} className="mr-1" />
-                      {isEditingContent ? "Update" : "Save"}
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+            )}
+          </TabsContent>
+
+          <TabsContent value="roles">
+            <RoleManager />
+          </TabsContent>
+        </Tabs>
       </div>
     </MobileLayout>
   );
