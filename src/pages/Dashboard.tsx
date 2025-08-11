@@ -35,21 +35,8 @@ const Dashboard = () => {
     duration: 60,
   });
   
-  // Mock data for upcoming workouts
-  const upcomingWorkouts = [
-    {
-      id: "tomorrow",
-      date: new Date(Date.now() + 86400000),
-      title: "Upper Body Push",
-      type: "Strength",
-    },
-    {
-      id: "day-after",
-      date: new Date(Date.now() + 172800000),
-      title: "Conditioning",
-      type: "Work Capacity",
-    },
-  ];
+  // Scheduled upcoming workouts
+  const [upcomingWorkouts, setUpcomingWorkouts] = useState<any[]>([]);
   
   useEffect(() => {
     async function getUserData() {
@@ -71,13 +58,55 @@ const Dashboard = () => {
         }
         
         // Check if user is admin
-        const { data: roles, error } = await supabase
+        const { data: roles } = await supabase
           .from('user_roles')
           .select('*')
           .eq('user_id', user.id)
           .eq('role', 'admin');
-          
         setIsAdmin(roles && roles.length > 0);
+
+        // Fetch today's scheduled workout and upcoming 7 days
+        const toISODate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        const today = new Date();
+        const todayISO = toISODate(today);
+        const endISO = toISODate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000));
+
+        const { data: todays } = await (supabase as any)
+          .from('user_scheduled_workouts')
+          .select('id, date, title, day_type, exercises')
+          .eq('user_id', user.id)
+          .eq('date', todayISO)
+          .limit(1);
+
+        if (todays && todays.length > 0) {
+          const t = todays[0];
+          setTodaysWorkout((prev) => ({
+            id: t.id,
+            title: t.title,
+            description: t.day_type || 'Training Session',
+            exercises: Array.isArray(t.exercises) && t.exercises.length > 0 ? t.exercises : prev.exercises,
+            duration: 60,
+          }));
+        }
+
+        const { data: upcoming } = await (supabase as any)
+          .from('user_scheduled_workouts')
+          .select('id, date, title, day_type')
+          .eq('user_id', user.id)
+          .gt('date', todayISO)
+          .lte('date', endISO)
+          .order('date', { ascending: true });
+
+        if (upcoming) {
+          setUpcomingWorkouts(
+            upcoming.map((w: any) => ({
+              id: w.id,
+              date: new Date(w.date),
+              title: w.title,
+              type: w.day_type || 'Training',
+            }))
+          );
+        }
       } catch (error) {
         console.error("Error fetching user data:", error);
       } finally {

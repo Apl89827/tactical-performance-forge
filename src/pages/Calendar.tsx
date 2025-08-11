@@ -1,53 +1,54 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import MobileLayout from "../components/layouts/MobileLayout";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
+import { supabase } from "@/integrations/supabase/client";
 const Calendar = () => {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Generate mock workout schedule for the month
-  const getMonthWorkouts = () => {
-    const workouts: Record<string, any> = {};
-    
-    // Current month's dates
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    // Workout types
-    const workoutTypes = [
-      { title: "Upper Body Push", type: "Strength" },
-      { title: "Lower Body", type: "Strength" },
-      { title: "Conditioning", type: "Work Capacity" },
-      { title: "Upper Body Pull", type: "Strength" },
-      { title: "Active Recovery", type: "Recovery" },
-      { title: "Ruck March", type: "Endurance" },
-      { title: "PT Test Prep", type: "Conditioning" },
-    ];
-    
-    // Create a schedule with rest days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      
-      // Skip some days as rest days (e.g., every 4th day)
-      if (day % 4 !== 0) {
-        const workoutIndex = (day % workoutTypes.length);
-        workouts[day] = {
-          id: `workout-${month}-${day}`,
-          date,
-          ...workoutTypes[workoutIndex],
-        };
+  // Load scheduled workouts for the current month
+  const [monthWorkouts, setMonthWorkouts] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const fetchMonthWorkouts = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const monthStart = new Date(year, month, 1);
+      const monthEnd = new Date(year, month + 1, 0);
+      const toISODate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+      const { data } = await (supabase as any)
+        .from('user_scheduled_workouts')
+        .select('id, date, title, day_type')
+        .eq('user_id', user.id)
+        .gte('date', toISODate(monthStart))
+        .lte('date', toISODate(monthEnd));
+
+      if (data) {
+        const map: Record<string, any> = {};
+        data.forEach((w: any) => {
+          const day = new Date(w.date).getDate();
+          map[day] = {
+            id: w.id,
+            date: new Date(w.date),
+            title: w.title,
+            type: w.day_type || 'Training',
+          };
+        });
+        setMonthWorkouts(map);
       }
-    }
-    
-    return workouts;
-  };
+    };
+
+    fetchMonthWorkouts();
+  }, [currentDate]);
   
-  const monthWorkouts = getMonthWorkouts();
+  
   
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const monthNames = [
