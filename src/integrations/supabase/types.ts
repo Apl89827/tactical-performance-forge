@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       content: {
         Row: {
           content: string | null
@@ -193,6 +226,126 @@ export type Database = {
         }
         Relationships: []
       }
+      user_scheduled_workouts: {
+        Row: {
+          created_at: string
+          date: string
+          day_type: string
+          exercises: Json
+          id: string
+          program_id: string | null
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          day_type: string
+          exercises?: Json
+          id?: string
+          program_id?: string | null
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          day_type?: string
+          exercises?: Json
+          id?: string
+          program_id?: string | null
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_set_logs: {
+        Row: {
+          actual_reps: number | null
+          actual_weight: number | null
+          completed: boolean
+          created_at: string
+          exercise_index: number
+          id: string
+          notes: string | null
+          set_number: number
+          target_reps: number | null
+          target_weight: number | null
+          updated_at: string
+          workout_log_id: string
+        }
+        Insert: {
+          actual_reps?: number | null
+          actual_weight?: number | null
+          completed?: boolean
+          created_at?: string
+          exercise_index: number
+          id?: string
+          notes?: string | null
+          set_number: number
+          target_reps?: number | null
+          target_weight?: number | null
+          updated_at?: string
+          workout_log_id: string
+        }
+        Update: {
+          actual_reps?: number | null
+          actual_weight?: number | null
+          completed?: boolean
+          created_at?: string
+          exercise_index?: number
+          id?: string
+          notes?: string | null
+          set_number?: number
+          target_reps?: number | null
+          target_weight?: number | null
+          updated_at?: string
+          workout_log_id?: string
+        }
+        Relationships: []
+      }
+      user_workout_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          rpe: number | null
+          scheduled_workout_id: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rpe?: number | null
+          scheduled_workout_id: string
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rpe?: number | null
+          scheduled_workout_id?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       workout_exercises: {
         Row: {
           bodyweight_percentage: number | null
@@ -275,6 +428,16 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      write_audit_entry: {
+        Args: {
+          _table: string
+          _record: string
+          _action: string
+          _old: Json
+          _new: Json
+        }
+        Returns: undefined
       }
     }
     Enums: {
