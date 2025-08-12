@@ -621,8 +621,9 @@ const ProgramAssignment: React.FC<ProgramAssignmentProps> = ({ programId, progra
         toast.error("Please select a user");
         return;
       }
-      
-      const { error } = await supabase
+
+      // 1) Save assignment record
+      const { error: assignError } = await supabase
         .from('user_program_assignments')
         .upsert({
           user_id: selectedUserId,
@@ -630,11 +631,57 @@ const ProgramAssignment: React.FC<ProgramAssignmentProps> = ({ programId, progra
           start_date: startDate || null,
           end_date: endDate || null
         });
-        
-      if (error) throw error;
-      
-      toast.success(`Program assigned successfully`);
-      
+      if (assignError) throw assignError;
+
+      // 2) Optionally generate scheduled workouts if dates are provided
+      if (startDate && endDate) {
+        // Fetch program exercises
+        const { data: exercises, error: exErr } = await supabase
+          .from('workout_exercises')
+          .select('*')
+          .eq('program_id', programId)
+          .order('order_position', { ascending: true });
+        if (exErr) throw exErr;
+
+        const buildISO = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        const start = new Date(startDate + 'T00:00:00');
+        const end = new Date(endDate + 'T00:00:00');
+
+        const days: string[] = [];
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          days.push(buildISO(new Date(d)));
+        }
+
+        const exercisePayload = (exercises || []).map((e) => ({
+          movement_name: e.movement_name,
+          sets: e.sets,
+          reps: e.reps,
+          notes: e.notes,
+          order_position: e.order_position,
+          is_bodyweight_percentage: e.is_bodyweight_percentage,
+          bodyweight_percentage: e.bodyweight_percentage,
+        }));
+
+        const inserts = days.map((iso) => ({
+          user_id: selectedUserId,
+          program_id: programId,
+          date: iso,
+          title: programTitle,
+          day_type: 'Training',
+          status: 'scheduled',
+          exercises: exercisePayload,
+          source: 'generator',
+        }));
+
+        if (inserts.length > 0) {
+          const { error: schedErr } = await (supabase as any)
+            .from('user_scheduled_workouts')
+            .insert(inserts);
+          if (schedErr) throw schedErr;
+        }
+      }
+
+      toast.success(`Program assigned${startDate && endDate ? ' and schedule generated' : ''}`);
     } catch (error) {
       console.error("Error assigning program:", error);
       toast.error("Failed to assign program");
