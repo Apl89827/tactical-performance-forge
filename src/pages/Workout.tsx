@@ -336,11 +336,18 @@ const Workout = () => {
 
       // Persist completion
       if (workoutLogId) {
-        const { error } = await (supabase as any)
+        const { error: logError } = await (supabase as any)
           .from("user_workout_logs")
           .update({ completed_at: toISODate(new Date()) })
           .eq("id", workoutLogId);
-        if (error) throw error;
+        if (logError) throw logError;
+
+        // Mark scheduled workout as completed
+        const { error: scheduleError } = await (supabase as any)
+          .from("user_scheduled_workouts")
+          .update({ status: 'completed' })
+          .eq("id", id);
+        if (scheduleError) throw scheduleError;
       }
 
       setWorkoutCompleted(true);

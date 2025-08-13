@@ -25,7 +25,7 @@ const Calendar = () => {
 
       const { data } = await (supabase as any)
         .from('user_scheduled_workouts')
-        .select('id, date, title, day_type')
+        .select('id, date, title, day_type, status')
         .eq('user_id', user.id)
         .gte('date', toISODate(monthStart))
         .lte('date', toISODate(monthEnd));
@@ -39,6 +39,7 @@ const Calendar = () => {
             date: new Date(w.date),
             title: w.title,
             type: w.day_type || 'Training',
+            status: w.status || 'scheduled',
           };
         });
         setMonthWorkouts(map);
@@ -190,8 +191,9 @@ const Calendar = () => {
                   <div 
                     className={`
                       w-full h-1 mt-1 rounded-full 
-                      ${
-                        day.workout.type === "Strength" ? "bg-tactical-blue" : 
+                      ${day.workout.status === 'completed' 
+                        ? "bg-green-600" 
+                        : day.workout.type === "Strength" ? "bg-tactical-blue" : 
                         day.workout.type === "Work Capacity" ? "bg-tactical-orange" : 
                         day.workout.type === "Endurance" ? "bg-green-600" : 
                         day.workout.type === "Recovery" ? "bg-purple-500" :
@@ -223,17 +225,24 @@ const Calendar = () => {
                   <div>
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="font-semibold text-lg">{workout?.title}</h3>
-                      <div className={`
-                        px-2 py-1 rounded text-xs
-                        ${
-                          workout?.type === "Strength" ? "bg-tactical-blue/20 text-tactical-blue" : 
-                          workout?.type === "Work Capacity" ? "bg-tactical-orange/20 text-tactical-orange" : 
-                          workout?.type === "Endurance" ? "bg-green-600/20 text-green-600" : 
-                          workout?.type === "Recovery" ? "bg-purple-500/20 text-purple-500" :
-                          "bg-gray-500/20 text-gray-500"
-                        }
-                      `}>
-                        {workout?.type}
+                      <div className="flex gap-2">
+                        <div className={`
+                          px-2 py-1 rounded text-xs
+                          ${
+                            workout?.type === "Strength" ? "bg-tactical-blue/20 text-tactical-blue" : 
+                            workout?.type === "Work Capacity" ? "bg-tactical-orange/20 text-tactical-orange" : 
+                            workout?.type === "Endurance" ? "bg-green-600/20 text-green-600" : 
+                            workout?.type === "Recovery" ? "bg-purple-500/20 text-purple-500" :
+                            "bg-gray-500/20 text-gray-500"
+                          }
+                        `}>
+                          {workout?.type}
+                        </div>
+                        {workout?.status === 'completed' && (
+                          <div className="px-2 py-1 rounded text-xs bg-green-600/20 text-green-600">
+                            ✓ Completed
+                          </div>
+                        )}
                       </div>
                     </div>
                     
@@ -244,8 +253,9 @@ const Calendar = () => {
                     <button 
                       className="btn-primary"
                       onClick={() => navigate(`/workout/${workout?.id}`)}
+                      disabled={workout?.status === 'completed'}
                     >
-                      Start Workout
+                      {workout?.status === 'completed' ? 'Workout Completed' : 'Start Workout'}
                     </button>
                   </div>
                 );

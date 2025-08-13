@@ -37,6 +37,7 @@ const Dashboard = () => {
   
   // Scheduled upcoming workouts
   const [upcomingWorkouts, setUpcomingWorkouts] = useState<any[]>([]);
+  const [derivedStats, setDerivedStats] = useState({ phase: "1", week: "1", workouts: "0" });
   
   useEffect(() => {
     async function getUserData() {
@@ -106,6 +107,18 @@ const Dashboard = () => {
               type: w.day_type || 'Training',
             }))
           );
+
+          // Derive phase/week stats from schedule progress
+          const totalScheduled = upcoming.length;
+          const completed = upcoming.filter((w: any) => w.status === 'completed').length;
+          const currentWeek = Math.ceil((completed + 1) / 3); // Assuming 3 workouts per week
+          const currentPhase = Math.ceil(currentWeek / 4); // Assuming 4 weeks per phase
+          
+          setDerivedStats({
+            phase: currentPhase.toString(),
+            week: currentWeek.toString(),
+            workouts: completed.toString()
+          });
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -172,9 +185,10 @@ const Dashboard = () => {
         
         {/* Quick stats - Now editable for admins */}
         <EditableStats
-          phase={stats.phase}
-          week={stats.week}
-          workouts={stats.workouts}
+          phase={stats.phase || derivedStats.phase}
+          week={stats.week || derivedStats.week}
+          workouts={stats.workouts || derivedStats.workouts}
+          derivedStats={derivedStats}
           isAdmin={isAdmin}
           onStatsUpdated={handleStatsUpdate}
         />

@@ -8,6 +8,7 @@ interface EditableStatsProps {
   phase: string;
   week: string;
   workouts: string;
+  derivedStats: { phase: string; week: string; workouts: string };
   isAdmin: boolean;
   onStatsUpdated: (newStats: { phase: string, week: string, workouts: string }) => void;
 }
@@ -16,6 +17,7 @@ const EditableStats: React.FC<EditableStatsProps> = ({
   phase,
   week,
   workouts,
+  derivedStats,
   isAdmin,
   onStatsUpdated
 }) => {
@@ -97,14 +99,23 @@ const EditableStats: React.FC<EditableStatsProps> = ({
       <div className="metric-card">
         <span className="text-xs text-muted-foreground">Phase</span>
         <span className="text-base font-semibold">{phase}</span>
+        {phase !== derivedStats.phase && (
+          <span className="text-xs text-muted-foreground ml-1">(auto: {derivedStats.phase})</span>
+        )}
       </div>
       <div className="metric-card">
         <span className="text-xs text-muted-foreground">Week</span>
         <span className="text-base font-semibold">{week}</span>
+        {week !== derivedStats.week && (
+          <span className="text-xs text-muted-foreground ml-1">(auto: {derivedStats.week})</span>
+        )}
       </div>
       <div className="metric-card">
         <span className="text-xs text-muted-foreground">Workouts</span>
         <span className="text-base font-semibold">{workouts}</span>
+        {workouts !== derivedStats.workouts && (
+          <span className="text-xs text-muted-foreground ml-1">(auto: {derivedStats.workouts})</span>
+        )}
       </div>
       
       {isAdmin && (

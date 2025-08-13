@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { Check, ChevronDown, ChevronUp, Play, Info, Percent } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { useWeightRecommendations } from "@/hooks/useWeightRecommendations";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ExerciseSet {
   setNumber: number;
@@ -47,6 +49,18 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [showNotes, setShowNotes] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Get current user ID for weight recommendations
+  React.useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
+
+  const { recommendation } = useWeightRecommendations(userId || '', name);
   
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
@@ -63,6 +77,10 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
       // Calculate weight and round to nearest 5
       const exactWeight = (userWeight * bodyweightPercentage) / 100;
       return Math.round(exactWeight / 5) * 5;
+    }
+    // Try AI-powered recommendation from profile/history
+    if (recommendation) {
+      return recommendation.recommendedWeight;
     }
     return null;
   };
@@ -139,13 +157,20 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
             </div>
           </div>
           
-          {/* Bodyweight percentage info */}
-          {isBodyweightPercentage && bodyweightPercentage && recommendedWeight && (
+          {/* Weight recommendation info */}
+          {recommendedWeight && (
             <div className="mb-4 p-3 bg-tactical-blue/10 rounded-md flex items-center">
               <Percent className="h-5 w-5 text-tactical-blue mr-2" />
               <div>
                 <p className="text-sm font-medium">Recommended weight: {recommendedWeight} lbs</p>
-                <p className="text-xs text-muted-foreground">Based on {bodyweightPercentage}% of your body weight</p>
+                <p className="text-xs text-muted-foreground">
+                  {isBodyweightPercentage && bodyweightPercentage 
+                    ? `Based on ${bodyweightPercentage}% of your body weight`
+                    : recommendation?.source === 'profile'
+                    ? 'Based on your 5RM data'
+                    : 'Based on your previous best'
+                  }
+                </p>
               </div>
             </div>
           )}
