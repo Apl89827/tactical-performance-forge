@@ -185,10 +185,10 @@ const Dashboard = () => {
         
         {/* Quick stats - Now editable for admins */}
         <EditableStats
-          phase={stats.phase || derivedStats.phase}
-          week={stats.week || derivedStats.week}
-          workouts={stats.workouts || derivedStats.workouts}
-          derivedStats={derivedStats}
+          phase={stats.phase || (derivedStats?.phase ?? "1")}
+          week={stats.week || (derivedStats?.week ?? "1")}
+          workouts={stats.workouts || (derivedStats?.workouts ?? "0")}
+          derivedStats={derivedStats || { phase: "1", week: "1", workouts: "0" }}
           isAdmin={isAdmin}
           onStatsUpdated={handleStatsUpdate}
         />
