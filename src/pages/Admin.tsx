@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RoleManager from "@/components/admin/RoleManager";
+import ConjugateTemplateManager from "@/components/admin/ConjugateTemplateManager";
 
 interface Content {
   id: string;
@@ -260,6 +261,7 @@ const Admin = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
 
           <TabsContent value="content">
@@ -468,6 +470,10 @@ const Admin = () => {
 
           <TabsContent value="roles">
             <RoleManager />
+          </TabsContent>
+
+          <TabsContent value="templates">
+            <ConjugateTemplateManager />
           </TabsContent>
         </Tabs>
       </div>
