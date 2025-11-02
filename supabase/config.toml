@@ -1,1 +1,7 @@
 project_id = "ozountbkleokvfqcwjui"
+
+[functions.generate-workout]
+verify_jwt = true
+
+[functions.ai-weight-predictor]
+verify_jwt = true

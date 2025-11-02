@@ -47,6 +47,33 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          athlete_id: string
+          coach_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          athlete_id: string
+          coach_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          athlete_id?: string
+          coach_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: []
+      }
       conjugate_templates: {
         Row: {
           config: Json
@@ -113,6 +140,93 @@ export type Database = {
         }
         Relationships: []
       }
+      movement_library: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty_level: string | null
+          equipment_needed: string[] | null
+          form_cues: Json | null
+          id: string
+          is_bodyweight: boolean | null
+          name: string
+          subcategory: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          equipment_needed?: string[] | null
+          form_cues?: Json | null
+          id?: string
+          is_bodyweight?: boolean | null
+          name: string
+          subcategory?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          equipment_needed?: string[] | null
+          form_cues?: Json | null
+          id?: string
+          is_bodyweight?: boolean | null
+          name?: string
+          subcategory?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      notification_queue: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          message: string
+          notification_type: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message: string
+          notification_type: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string
+          notification_type?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -169,6 +283,50 @@ export type Database = {
           weight?: number | null
         }
         Relationships: []
+      }
+      program_versions: {
+        Row: {
+          change_notes: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          exercises: Json
+          id: string
+          program_id: string
+          title: string
+          version_number: number
+        }
+        Insert: {
+          change_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          exercises: Json
+          id?: string
+          program_id: string
+          title: string
+          version_number: number
+        }
+        Update: {
+          change_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          exercises?: Json
+          id?: string
+          program_id?: string
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_versions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "workout_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pt_metrics: {
         Row: {
@@ -452,9 +610,52 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_performance_summary: {
+        Row: {
+          avg_rpe: number | null
+          bench_5rm: number | null
+          bodyweight: number | null
+          deadlift_5rm: number | null
+          first_name: string | null
+          last_name: string | null
+          last_workout_date: string | null
+          latest_pullups: number | null
+          latest_pushups: number | null
+          latest_run_time: string | null
+          latest_situps: number | null
+          selection_date: string | null
+          squat_5rm: number | null
+          total_training_days: number | null
+          total_volume_lbs: number | null
+          total_workouts_completed: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_user_performance: {
+        Args: { target_user_id?: string }
+        Returns: {
+          avg_rpe: number
+          bench_5rm: number
+          bodyweight: number
+          deadlift_5rm: number
+          first_name: string
+          last_name: string
+          last_workout_date: string
+          latest_pullups: number
+          latest_pushups: number
+          latest_run_time: string
+          latest_situps: number
+          selection_date: string
+          squat_5rm: number
+          total_training_days: number
+          total_volume_lbs: number
+          total_workouts_completed: number
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -462,6 +663,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      refresh_performance_summary: { Args: never; Returns: undefined }
       write_audit_entry: {
         Args: {
           _action: string

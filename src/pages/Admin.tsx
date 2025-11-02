@@ -16,6 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RoleManager from "@/components/admin/RoleManager";
 import ConjugateTemplateManager from "@/components/admin/ConjugateTemplateManager";
+import { MovementLibraryManager } from "@/components/admin/MovementLibraryManager";
+import { AnalyticsDashboard } from "@/components/admin/AnalyticsDashboard";
 
 interface Content {
   id: string;
@@ -258,10 +260,12 @@ const Admin = () => {
     <MobileLayout title={isAddingContent ? (isEditingContent ? "Edit Content" : "Add Content") : "Admin"}>
       <div className="mobile-safe-area">
         <Tabs defaultValue="content" className="w-full">
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 grid w-full grid-cols-5">
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="movements">Movements</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="content">
@@ -474,6 +478,14 @@ const Admin = () => {
 
           <TabsContent value="templates">
             <ConjugateTemplateManager />
+          </TabsContent>
+
+          <TabsContent value="movements">
+            <MovementLibraryManager />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <AnalyticsDashboard />
           </TabsContent>
         </Tabs>
       </div>
