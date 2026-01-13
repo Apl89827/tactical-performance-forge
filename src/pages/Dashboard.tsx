@@ -1,18 +1,28 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
-import { Play, Clock, Calendar as CalendarIcon, BarChart2 } from "lucide-react";
+import { Play, Clock, Calendar as CalendarIcon, BarChart2, Layers, ChevronRight } from "lucide-react";
 import CountdownTile from "../components/home/CountdownTile";
 import EditableStats from "../components/home/EditableStats";
 import EditableWorkout from "../components/home/EditableWorkout";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Active program state
+  const [activeProgram, setActiveProgram] = useState<{
+    id: string;
+    title: string;
+    currentWeek: number;
+    totalWeeks: number;
+    completedWorkouts: number;
+    totalWorkouts: number;
+  } | null>(null);
   
   // Stats state
   const [stats, setStats] = useState({
@@ -21,19 +31,15 @@ const Dashboard = () => {
     workouts: "7 Done"
   });
   
-  // Mock data for today's workout
-  const [todaysWorkout, setTodaysWorkout] = useState({
-    id: "today",
-    title: "Lower Body Strength",
-    description: "Focus on squat patterns and posterior chain",
-    exercises: [
-      { name: "Back Squat", sets: 5, reps: "5" },
-      { name: "Romanian Deadlift", sets: 4, reps: "8" },
-      { name: "Walking Lunges", sets: 3, reps: "12 each" },
-      { name: "Weighted Step-ups", sets: 3, reps: "10 each" },
-    ],
-    duration: 60,
-  });
+  // Today's workout
+  const [todaysWorkout, setTodaysWorkout] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    exercises: { name: string; sets: number; reps: string }[];
+    duration: number;
+    status?: string;
+  } | null>(null);
   
   // Scheduled upcoming workouts
   const [upcomingWorkouts, setUpcomingWorkouts] = useState<any[]>([]);
@@ -50,12 +56,46 @@ const Dashboard = () => {
           return;
         }
         
-        // Get profile data from localStorage or API
-        const storedData = localStorage.getItem("profileData");
-        const parsedData = storedData ? JSON.parse(storedData) : null;
+        // Get profile data including active program
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*, active_program_id, program_start_date, first_name, last_name')
+          .eq('id', user.id)
+          .single();
         
-        if (parsedData) {
-          setProfileData(parsedData);
+        if (profile) {
+          setProfileData(profile);
+          
+          // Fetch active program details
+          if (profile.active_program_id) {
+            const { data: program } = await supabase
+              .from('workout_programs')
+              .select('id, title, duration_weeks, days_per_week')
+              .eq('id', profile.active_program_id)
+              .single();
+            
+            if (program) {
+              // Get workout completion stats
+              const { data: workouts } = await supabase
+                .from('user_scheduled_workouts')
+                .select('id, status, week_number')
+                .eq('user_id', user.id)
+                .eq('program_id', program.id);
+              
+              const completed = workouts?.filter(w => w.status === 'completed').length || 0;
+              const total = workouts?.length || program.duration_weeks * program.days_per_week;
+              const currentWeekNum = workouts?.find(w => w.status === 'scheduled')?.week_number || 1;
+              
+              setActiveProgram({
+                id: program.id,
+                title: program.title,
+                currentWeek: currentWeekNum,
+                totalWeeks: program.duration_weeks,
+                completedWorkouts: completed,
+                totalWorkouts: total,
+              });
+            }
+          }
         }
         
         // Check if user is admin
@@ -72,27 +112,34 @@ const Dashboard = () => {
         const todayISO = toISODate(today);
         const endISO = toISODate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000));
 
-        const { data: todays } = await (supabase as any)
+        const { data: todays } = await supabase
           .from('user_scheduled_workouts')
-          .select('id, date, title, day_type, exercises')
+          .select('id, date, title, day_type, exercises, status')
           .eq('user_id', user.id)
           .eq('date', todayISO)
           .limit(1);
 
         if (todays && todays.length > 0) {
           const t = todays[0];
-          setTodaysWorkout((prev) => ({
+          setTodaysWorkout({
             id: t.id,
             title: t.title,
             description: t.day_type || 'Training Session',
-            exercises: Array.isArray(t.exercises) && t.exercises.length > 0 ? t.exercises : prev.exercises,
+            exercises: Array.isArray(t.exercises) ? t.exercises.map((e: any) => ({
+              name: e.name,
+              sets: e.sets,
+              reps: e.reps
+            })) : [],
             duration: 60,
-          }));
+            status: t.status,
+          });
+        } else {
+          setTodaysWorkout(null);
         }
 
-        const { data: upcoming } = await (supabase as any)
+        const { data: upcoming } = await supabase
           .from('user_scheduled_workouts')
-          .select('id, date, title, day_type')
+          .select('id, date, title, day_type, status')
           .eq('user_id', user.id)
           .gt('date', todayISO)
           .lte('date', endISO)
@@ -176,6 +223,45 @@ const Dashboard = () => {
           </h1>
           <p className="text-muted-foreground">Let's crush today's workout</p>
         </header>
+        
+        {/* Active Program Banner */}
+        {activeProgram ? (
+          <section className="mb-6">
+            <div className="bg-gradient-to-r from-tactical-blue/20 to-tactical-blue/5 rounded-lg border border-tactical-blue/30 p-4">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <p className="text-xs text-tactical-blue font-medium uppercase tracking-wide">Current Program</p>
+                  <h3 className="font-semibold text-lg">{activeProgram.title}</h3>
+                </div>
+                <span className="bg-tactical-blue/20 text-tactical-blue text-xs py-1 px-2 rounded">
+                  Week {activeProgram.currentWeek} of {activeProgram.totalWeeks}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-tactical-blue rounded-full transition-all"
+                    style={{ width: `${(activeProgram.completedWorkouts / activeProgram.totalWorkouts) * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {activeProgram.completedWorkouts}/{activeProgram.totalWorkouts}
+                </span>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="mb-6">
+            <div className="bg-card rounded-lg border border-border p-4 text-center">
+              <Layers className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <p className="font-medium mb-1">No Active Program</p>
+              <p className="text-sm text-muted-foreground mb-3">Select a training program to get started</p>
+              <Button onClick={() => navigate("/programs")} className="w-full">
+                Browse Programs
+              </Button>
+            </div>
+          </section>
+        )}
         
         {/* Selection Countdown Tile - Only visible if selection data exists */}
         <CountdownTile 

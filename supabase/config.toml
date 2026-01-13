@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.ai-weight-predictor]
 verify_jwt = true
+
+[functions.generate-program-schedule]
+verify_jwt = true

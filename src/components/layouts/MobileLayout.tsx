@@ -1,11 +1,10 @@
-
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   BarChart2, 
   Calendar as CalendarIcon, 
   Home, 
-  PlaySquare, 
+  Layers,
   User
 } from "lucide-react";
 
@@ -29,7 +28,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
   const isActive = (path: string) => {
     if (path === "/dashboard" && currentPath === "/dashboard") return true;
     if (path === "/calendar" && currentPath === "/calendar") return true;
-    if (path === "/workout" && currentPath.includes("/workout")) return true;
+    if (path === "/programs" && currentPath === "/programs") return true;
     if (path === "/progress" && currentPath === "/progress") return true;
     if (path === "/profile" && currentPath === "/profile") return true;
     return false;
@@ -95,13 +94,13 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
               Calendar
             </span>
           </div>
-          <div className="tab-item" onClick={() => navigate("/workout/today")}>
-            <PlaySquare 
+          <div className="tab-item" onClick={() => navigate("/programs")}>
+            <Layers 
               size={20} 
-              className={isActive("/workout") ? "text-tactical-blue" : "text-gray-400"} 
+              className={isActive("/programs") ? "text-tactical-blue" : "text-gray-400"} 
             />
-            <span className={`tab-text ${isActive("/workout") ? "text-tactical-blue" : "text-gray-400"}`}>
-              Workout
+            <span className={`tab-text ${isActive("/programs") ? "text-tactical-blue" : "text-gray-400"}`}>
+              Programs
             </span>
           </div>
           <div className="tab-item" onClick={() => navigate("/progress")}>

@@ -229,6 +229,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_program_id: string | null
           avatar_url: string | null
           bench_5rm: number | null
           created_at: string
@@ -239,6 +240,9 @@ export type Database = {
           height: number | null
           id: string
           last_name: string | null
+          program_start_date: string | null
+          reminder_enabled: boolean | null
+          reminder_time: string | null
           selection_date: string | null
           selection_type: string | null
           squat_5rm: number | null
@@ -247,6 +251,7 @@ export type Database = {
           weight: number | null
         }
         Insert: {
+          active_program_id?: string | null
           avatar_url?: string | null
           bench_5rm?: number | null
           created_at?: string
@@ -257,6 +262,9 @@ export type Database = {
           height?: number | null
           id: string
           last_name?: string | null
+          program_start_date?: string | null
+          reminder_enabled?: boolean | null
+          reminder_time?: string | null
           selection_date?: string | null
           selection_type?: string | null
           squat_5rm?: number | null
@@ -265,6 +273,7 @@ export type Database = {
           weight?: number | null
         }
         Update: {
+          active_program_id?: string | null
           avatar_url?: string | null
           bench_5rm?: number | null
           created_at?: string
@@ -275,6 +284,9 @@ export type Database = {
           height?: number | null
           id?: string
           last_name?: string | null
+          program_start_date?: string | null
+          reminder_enabled?: boolean | null
+          reminder_time?: string | null
           selection_date?: string | null
           selection_type?: string | null
           squat_5rm?: number | null
@@ -282,7 +294,15 @@ export type Database = {
           updated_at?: string
           weight?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_active_program_id_fkey"
+            columns: ["active_program_id"]
+            isOneToOne: false
+            referencedRelation: "workout_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       program_versions: {
         Row: {
@@ -430,6 +450,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          week_number: number | null
         }
         Insert: {
           created_at?: string
@@ -443,6 +464,7 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          week_number?: number | null
         }
         Update: {
           created_at?: string
@@ -456,6 +478,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          week_number?: number | null
         }
         Relationships: []
       }
@@ -541,6 +564,7 @@ export type Database = {
         Row: {
           bodyweight_percentage: number | null
           created_at: string
+          day_of_week: number | null
           id: string
           is_bodyweight_percentage: boolean
           movement_name: string
@@ -549,10 +573,12 @@ export type Database = {
           program_id: string
           reps: number
           sets: number
+          week_number: number | null
         }
         Insert: {
           bodyweight_percentage?: number | null
           created_at?: string
+          day_of_week?: number | null
           id?: string
           is_bodyweight_percentage?: boolean
           movement_name: string
@@ -561,10 +587,12 @@ export type Database = {
           program_id: string
           reps?: number
           sets?: number
+          week_number?: number | null
         }
         Update: {
           bodyweight_percentage?: number | null
           created_at?: string
+          day_of_week?: number | null
           id?: string
           is_bodyweight_percentage?: boolean
           movement_name?: string
@@ -573,6 +601,7 @@ export type Database = {
           program_id?: string
           reps?: number
           sets?: number
+          week_number?: number | null
         }
         Relationships: [
           {
@@ -588,22 +617,34 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          days_per_week: number | null
           description: string | null
+          duration_weeks: number | null
           id: string
+          is_public: boolean | null
+          program_type: string | null
           title: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          days_per_week?: number | null
           description?: string | null
+          duration_weeks?: number | null
           id?: string
+          is_public?: boolean | null
+          program_type?: string | null
           title: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          days_per_week?: number | null
           description?: string | null
+          duration_weeks?: number | null
           id?: string
+          is_public?: boolean | null
+          program_type?: string | null
           title?: string
         }
         Relationships: []

@@ -24,6 +24,7 @@ import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Install from "./pages/Install";
+import Programs from "./pages/Programs";
 
 // Components
 import OfflineIndicator from "./components/pwa/OfflineIndicator";
@@ -193,6 +194,14 @@ const App = () => {
                 element={
                   session ? 
                     (hasCompletedOnboarding ? <Calendar /> : <Navigate to="/onboarding" />) : 
+                    <Navigate to="/login" />
+                } 
+              />
+              <Route 
+                path="/programs" 
+                element={
+                  session ? 
+                    (hasCompletedOnboarding ? <Programs /> : <Navigate to="/onboarding" />) : 
                     <Navigate to="/login" />
                 } 
               />
