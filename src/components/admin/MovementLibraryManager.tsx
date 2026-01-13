@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Video } from "lucide-react";
+import { Plus, Pencil, Trash2, Video, Play } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { VideoUploader } from "./VideoUploader";
 
 interface Movement {
   id: string;
@@ -232,11 +233,11 @@ export const MovementLibraryManager = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Video URL</Label>
-                <Input
-                  value={formData.video_url || ""}
-                  onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
-                  placeholder="https://youtube.com/..."
+                <Label>Form Video</Label>
+                <VideoUploader
+                  currentVideoUrl={formData.video_url || null}
+                  onVideoUrlChange={(url) => setFormData({ ...formData, video_url: url })}
+                  movementName={formData.name}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -312,9 +313,9 @@ export const MovementLibraryManager = () => {
                 </div>
                 <div className="flex gap-2">
                   {movement.video_url && (
-                    <Button variant="ghost" size="icon" asChild>
+                    <Button variant="ghost" size="icon" asChild className="text-primary">
                       <a href={movement.video_url} target="_blank" rel="noopener noreferrer">
-                        <Video className="h-4 w-4" />
+                        <Play className="h-4 w-4" />
                       </a>
                     </Button>
                   )}
