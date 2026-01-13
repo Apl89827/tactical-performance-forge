@@ -23,6 +23,10 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Install from "./pages/Install";
+
+// Components
+import OfflineIndicator from "./components/pwa/OfflineIndicator";
 
 // Create auth context
 export const AuthContext = createContext<{
@@ -143,12 +147,14 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={{ session, user, isAdmin }}>
         <TooltipProvider>
+          <OfflineIndicator />
           <Toaster />
           <Sonner position="top-center" closeButton={true} />
           <BrowserRouter>
             <Routes>
               {/* Public routes */}
               <Route path="/" element={session ? <Navigate to="/dashboard" /> : <Welcome />} />
+              <Route path="/install" element={<Install />} />
               <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Login />} />
               <Route path="/register" element={session ? <Navigate to="/dashboard" /> : <Register />} />
               <Route path="/forgot-password" element={session ? <Navigate to="/dashboard" /> : <ForgotPassword />} />
