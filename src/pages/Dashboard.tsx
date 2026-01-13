@@ -24,11 +24,11 @@ const Dashboard = () => {
     totalWorkouts: number;
   } | null>(null);
   
-  // Stats state
-  const [stats, setStats] = useState({
-    phase: "Strength",
-    week: "2 of 8",
-    workouts: "7 Done"
+  // Real stats from program data
+  const [programStats, setProgramStats] = useState({
+    phase: "-",
+    week: "-",
+    workoutsRemaining: "-"
   });
   
   // Today's workout
@@ -43,7 +43,6 @@ const Dashboard = () => {
   
   // Scheduled upcoming workouts
   const [upcomingWorkouts, setUpcomingWorkouts] = useState<any[]>([]);
-  const [derivedStats, setDerivedStats] = useState({ phase: "1", week: "1", workouts: "0" });
   
   useEffect(() => {
     async function getUserData() {
@@ -78,13 +77,29 @@ const Dashboard = () => {
               // Get workout completion stats
               const { data: workouts } = await supabase
                 .from('user_scheduled_workouts')
-                .select('id, status, week_number')
+                .select('id, status, week_number, date')
                 .eq('user_id', user.id)
-                .eq('program_id', program.id);
+                .eq('program_id', program.id)
+                .order('date', { ascending: true });
               
               const completed = workouts?.filter(w => w.status === 'completed').length || 0;
               const total = workouts?.length || program.duration_weeks * program.days_per_week;
-              const currentWeekNum = workouts?.find(w => w.status === 'scheduled')?.week_number || 1;
+              const remaining = total - completed;
+              
+              // Calculate current week based on program start date
+              let currentWeekNum = 1;
+              if (profile.program_start_date) {
+                const startDate = new Date(profile.program_start_date);
+                const today = new Date();
+                const daysDiff = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                currentWeekNum = Math.min(Math.max(1, Math.ceil((daysDiff + 1) / 7)), program.duration_weeks);
+              }
+              
+              // Calculate phase (4 weeks per phase for SFAS-style programs)
+              const weeksPerPhase = 4;
+              const currentPhase = Math.ceil(currentWeekNum / weeksPerPhase);
+              const phaseNames = ["Foundation", "Build", "Peak"];
+              const phaseName = phaseNames[currentPhase - 1] || `Phase ${currentPhase}`;
               
               setActiveProgram({
                 id: program.id,
@@ -93,6 +108,13 @@ const Dashboard = () => {
                 totalWeeks: program.duration_weeks,
                 completedWorkouts: completed,
                 totalWorkouts: total,
+              });
+              
+              // Set real program stats
+              setProgramStats({
+                phase: phaseName,
+                week: `${currentWeekNum} of ${program.duration_weeks}`,
+                workoutsRemaining: `${remaining} Left`
               });
             }
           }
@@ -155,17 +177,7 @@ const Dashboard = () => {
             }))
           );
 
-          // Derive phase/week stats from schedule progress
-          const totalScheduled = upcoming.length;
-          const completed = upcoming.filter((w: any) => w.status === 'completed').length;
-          const currentWeek = Math.ceil((completed + 1) / 3); // Assuming 3 workouts per week
-          const currentPhase = Math.ceil(currentWeek / 4); // Assuming 4 weeks per phase
-          
-          setDerivedStats({
-            phase: currentPhase.toString(),
-            week: currentWeek.toString(),
-            workouts: completed.toString()
-          });
+          // Stats are now calculated from active program, not upcoming workouts
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -184,7 +196,11 @@ const Dashboard = () => {
   
   // Update stats handler
   const handleStatsUpdate = (newStats: {phase: string, week: string, workouts: string}) => {
-    setStats(newStats);
+    setProgramStats({
+      phase: newStats.phase,
+      week: newStats.week,
+      workoutsRemaining: newStats.workouts
+    });
   };
   
   // Update workout handler
@@ -269,12 +285,12 @@ const Dashboard = () => {
           selectionType={profileData?.selectionType || null} 
         />
         
-        {/* Quick stats - Now editable for admins */}
+        {/* Quick stats - Shows real program data */}
         <EditableStats
-          phase={stats.phase || (derivedStats?.phase ?? "1")}
-          week={stats.week || (derivedStats?.week ?? "1")}
-          workouts={stats.workouts || (derivedStats?.workouts ?? "0")}
-          derivedStats={derivedStats || { phase: "1", week: "1", workouts: "0" }}
+          phase={programStats.phase}
+          week={programStats.week}
+          workouts={programStats.workoutsRemaining}
+          derivedStats={{ phase: programStats.phase, week: programStats.week, workouts: programStats.workoutsRemaining }}
           isAdmin={isAdmin}
           onStatsUpdated={handleStatsUpdate}
         />
