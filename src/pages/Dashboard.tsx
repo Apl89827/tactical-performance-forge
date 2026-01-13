@@ -282,11 +282,22 @@ const Dashboard = () => {
         {/* Today's workout - Now editable for admins */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-3">Today's Workout</h2>
-          <EditableWorkout
-            workout={todaysWorkout}
-            isAdmin={isAdmin}
-            onWorkoutUpdated={handleWorkoutUpdate}
-          />
+          {todaysWorkout ? (
+            <EditableWorkout
+              workout={todaysWorkout}
+              isAdmin={isAdmin}
+              onWorkoutUpdated={handleWorkoutUpdate}
+            />
+          ) : (
+            <div className="workout-card text-center py-8">
+              <Play size={32} className="mx-auto text-muted-foreground mb-3" />
+              <p className="font-medium mb-1">No Workout Scheduled</p>
+              <p className="text-sm text-muted-foreground mb-4">Start a program to add workouts to your calendar</p>
+              <Button onClick={() => navigate("/programs")} variant="outline">
+                Browse Programs
+              </Button>
+            </div>
+          )}
         </section>
         
         {/* Upcoming workouts */}
