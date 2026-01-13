@@ -89,6 +89,7 @@ const Calendar = () => {
         day: daysInPrevMonth - i,
         currentMonth: false,
         date: new Date(year, month - 1, daysInPrevMonth - i),
+        workouts: [],
       });
     }
     
@@ -110,6 +111,7 @@ const Calendar = () => {
         day: i,
         currentMonth: false,
         date: new Date(year, month + 1, i),
+        workouts: [],
       });
     }
     
