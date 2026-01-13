@@ -18,6 +18,16 @@ interface ScheduledExercise {
   bodyweight_percentage?: number | null;
 }
 
+interface UserMaxLifts {
+  weight: number | null;
+  bench_3rm: number | null;
+  deadlift_3rm: number | null;
+  squat_3rm: number | null;
+  bench_5rm: number | null;
+  deadlift_5rm: number | null;
+  squat_5rm: number | null;
+}
+
 interface ExerciseSetState {
   setNumber: number;
   targetReps: string | number;
@@ -33,7 +43,7 @@ const Workout = () => {
   const { id } = useParams<{ id: string }>();
 
   const [loading, setLoading] = useState(true);
-  const [profileWeight, setProfileWeight] = useState<number | null>(null);
+  const [userMaxLifts, setUserMaxLifts] = useState<UserMaxLifts | null>(null);
   const [workoutLogId, setWorkoutLogId] = useState<string | null>(null);
   const [scheduled, setScheduled] = useState<{
     id: string;
@@ -68,7 +78,7 @@ const Workout = () => {
       video: string;
       isBodyweightPercentage?: boolean;
       bodyweightPercentage?: number;
-      userWeight?: number | null;
+      userMaxLifts?: UserMaxLifts | null;
     }>;
 
     return scheduled.exercises
@@ -96,10 +106,10 @@ const Workout = () => {
           video: "",
           isBodyweightPercentage: !!ex.is_bodyweight_percentage,
           bodyweightPercentage: ex.bodyweight_percentage ?? undefined,
-          userWeight: profileWeight,
+          userMaxLifts,
         };
       });
-  }, [scheduled, setsState, profileWeight]);
+  }, [scheduled, setsState, userMaxLifts]);
 
   // Load scheduled workout, ensure workout log exists, and hydrate set logs
   useEffect(() => {
@@ -121,13 +131,22 @@ const Workout = () => {
           return;
         }
 
-        // Load profile to get weight (for %BW recommendations)
+        // Load profile to get weight and RM values
         const { data: profile } = await supabase
           .from("profiles")
-          .select("weight")
+          .select("weight, bench_3rm, deadlift_3rm, squat_3rm, bench_5rm, deadlift_5rm, squat_5rm")
           .eq("id", auth.user.id)
           .maybeSingle();
-        setProfileWeight(profile?.weight ?? null);
+        
+        setUserMaxLifts({
+          weight: profile?.weight ?? null,
+          bench_3rm: profile?.bench_3rm ?? null,
+          deadlift_3rm: profile?.deadlift_3rm ?? null,
+          squat_3rm: profile?.squat_3rm ?? null,
+          bench_5rm: profile?.bench_5rm ?? null,
+          deadlift_5rm: profile?.deadlift_5rm ?? null,
+          squat_5rm: profile?.squat_5rm ?? null,
+        });
 
         // Load scheduled workout
         const { data: s, error: sErr } = await (supabase as any)
@@ -422,7 +441,7 @@ const Workout = () => {
                 isActive={activeExerciseIndex === exerciseIndex}
                 isBodyweightPercentage={exercise.isBodyweightPercentage}
                 bodyweightPercentage={exercise.bodyweightPercentage}
-                userWeight={exercise.userWeight ?? undefined}
+                userMaxLifts={exercise.userMaxLifts ?? undefined}
                 onSetComplete={(exIdx, setIdx, isCompleted) => {
                   updateSetData(exIdx, setIdx, "isCompleted", isCompleted);
                   if (isCompleted) startRestTimer(exercise.restTime);

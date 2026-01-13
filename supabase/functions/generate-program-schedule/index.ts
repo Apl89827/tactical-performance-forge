@@ -129,13 +129,14 @@ Deno.serve(async (req) => {
           week_number: week,
           status: "scheduled",
           source: "program_generator",
-          exercises: exercisesForDay.map(e => ({
-            name: e.movement_name,
+          exercises: exercisesForDay.map((e, idx) => ({
+            movement_name: e.movement_name,
             sets: e.sets,
-            reps: e.reps.toString(),
+            reps: e.reps,
             notes: e.notes || "",
-            is_bodyweight_percentage: e.is_bodyweight_percentage,
-            bodyweight_percentage: e.bodyweight_percentage,
+            order_position: idx + 1,
+            is_bodyweight_percentage: e.is_bodyweight_percentage || false,
+            bodyweight_percentage: e.bodyweight_percentage || null,
           })),
         });
       }
