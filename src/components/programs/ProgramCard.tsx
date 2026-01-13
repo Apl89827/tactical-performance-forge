@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, Clock, Dumbbell } from "lucide-react";
+import { Calendar, Clock, Dumbbell, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ProgramCardProps {
@@ -11,7 +11,8 @@ interface ProgramCardProps {
   programType: string;
   exerciseCount: number;
   onSelect: (programId: string) => void;
-  isSelected?: boolean;
+  isActive?: boolean;
+  canAdd?: boolean;
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({
@@ -23,7 +24,8 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   programType,
   exerciseCount,
   onSelect,
-  isSelected = false,
+  isActive = false,
+  canAdd = true,
 }) => {
   const typeColors: Record<string, string> = {
     strength: "bg-tactical-blue/20 text-tactical-blue",
@@ -37,14 +39,21 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
   return (
     <div 
       className={`bg-card rounded-lg border p-4 transition-all ${
-        isSelected ? "border-tactical-blue ring-2 ring-tactical-blue/30" : "border-border"
+        isActive ? "border-green-500 ring-2 ring-green-500/30" : "border-border"
       }`}
     >
       <div className="flex justify-between items-start mb-3">
         <h3 className="font-semibold text-lg">{title}</h3>
-        <span className={`px-2 py-1 rounded text-xs capitalize ${colorClass}`}>
-          {programType}
-        </span>
+        <div className="flex items-center gap-2">
+          {isActive && (
+            <span className="bg-green-500/20 text-green-500 px-2 py-1 rounded text-xs flex items-center gap-1">
+              <Check size={12} /> Active
+            </span>
+          )}
+          <span className={`px-2 py-1 rounded text-xs capitalize ${colorClass}`}>
+            {programType}
+          </span>
+        </div>
       </div>
 
       {description && (
@@ -70,10 +79,11 @@ const ProgramCard: React.FC<ProgramCardProps> = ({
 
       <Button
         onClick={() => onSelect(id)}
-        variant={isSelected ? "secondary" : "default"}
+        variant={isActive ? "secondary" : "default"}
         className="w-full"
+        disabled={isActive || (!canAdd && !isActive)}
       >
-        {isSelected ? "Selected" : "Start Program"}
+        {isActive ? "Currently Active" : canAdd ? "Add to Stack" : "Stack Full"}
       </Button>
     </div>
   );

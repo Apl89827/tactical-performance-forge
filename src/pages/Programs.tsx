@@ -5,7 +5,9 @@ import ProgramCard from "@/components/programs/ProgramCard";
 import StartProgramModal from "@/components/programs/StartProgramModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Dumbbell } from "lucide-react";
+import { Loader2, Dumbbell, AlertCircle } from "lucide-react";
+import { useActivePrograms } from "@/hooks/useActivePrograms";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Program {
   id: string;
@@ -24,16 +26,22 @@ const Programs = () => {
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeProgram, setActiveProgram] = useState<string | null>(null);
+
+  const { 
+    activePrograms, 
+    loading: activeProgramsLoading, 
+    canAddProgram, 
+    isProgamActive,
+    refetch: refetchActivePrograms,
+    MAX_ACTIVE_PROGRAMS 
+  } = useActivePrograms();
 
   useEffect(() => {
     fetchPrograms();
-    fetchActiveProgram();
   }, []);
 
   const fetchPrograms = async () => {
     try {
-      // Fetch programs that are public or assigned to user
       const { data: programsData, error } = await supabase
         .from("workout_programs")
         .select(`
@@ -48,7 +56,6 @@ const Programs = () => {
 
       if (error) throw error;
 
-      // Get exercise counts for each program
       const programIds = programsData?.map((p) => p.id) || [];
       const { data: exerciseCounts } = await supabase
         .from("workout_exercises")
@@ -74,31 +81,24 @@ const Programs = () => {
     }
   };
 
-  const fetchActiveProgram = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("active_program_id")
-        .eq("id", user.id)
-        .single();
-
-      if (data?.active_program_id) {
-        setActiveProgram(data.active_program_id);
-      }
-    } catch (error) {
-      console.error("Error fetching active program:", error);
-    }
-  };
-
   const handleSelectProgram = (programId: string) => {
     const program = programs.find((p) => p.id === programId);
-    if (program) {
-      setSelectedProgram(program);
-      setModalOpen(true);
+    if (!program) return;
+
+    // Check if already active
+    if (isProgamActive(programId)) {
+      toast.info("This program is already active");
+      return;
     }
+
+    // Check if can add more programs
+    if (!canAddProgram()) {
+      toast.error(`You can only have ${MAX_ACTIVE_PROGRAMS} active programs at once. Remove one to add another.`);
+      return;
+    }
+
+    setSelectedProgram(program);
+    setModalOpen(true);
   };
 
   const handleConfirmProgram = async (programId: string, startDate: Date) => {
@@ -119,16 +119,10 @@ const Programs = () => {
 
       if (error) throw error;
 
-      // Update profile with active program
-      await supabase
-        .from("profiles")
-        .update({
-          active_program_id: programId,
-          program_start_date: startDate.toISOString().split("T")[0],
-        })
-        .eq("id", user.id);
+      // Refetch active programs to update UI
+      await refetchActivePrograms();
 
-      toast.success("Program started! Your calendar is ready.");
+      toast.success("Program added! Your calendar has been updated.");
       setModalOpen(false);
       navigate("/calendar");
     } catch (error) {
@@ -139,7 +133,7 @@ const Programs = () => {
     }
   };
 
-  if (loading) {
+  if (loading || activeProgramsLoading) {
     return (
       <MobileLayout title="Programs">
         <div className="flex items-center justify-center h-64">
@@ -153,12 +147,38 @@ const Programs = () => {
     <MobileLayout title="Programs">
       <div className="mobile-safe-area py-4">
         <div className="mb-6">
-          <h1 className="text-xl font-bold mb-2">Choose Your Program</h1>
+          <h1 className="text-xl font-bold mb-2">Choose Your Programs</h1>
           <p className="text-muted-foreground text-sm">
-            Select a training program to load your 12-week schedule. Workouts will be
-            automatically added to your calendar.
+            Stack up to {MAX_ACTIVE_PROGRAMS} programs at once. Workouts from all active programs will appear on your calendar.
           </p>
         </div>
+
+        {/* Active Programs Summary */}
+        {activePrograms.length > 0 && (
+          <div className="mb-6 p-4 bg-tactical-blue/10 rounded-lg border border-tactical-blue/30">
+            <h3 className="font-medium text-sm mb-2 text-tactical-blue">
+              Active Programs ({activePrograms.length}/{MAX_ACTIVE_PROGRAMS})
+            </h3>
+            <div className="space-y-2">
+              {activePrograms.map((program) => (
+                <div key={program.id} className="flex justify-between items-center text-sm">
+                  <span>{program.title}</span>
+                  <span className="text-muted-foreground">Week {program.currentWeek}/{program.totalWeeks}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Capacity Warning */}
+        {!canAddProgram() && (
+          <Alert className="mb-4 border-tactical-orange/50 bg-tactical-orange/10">
+            <AlertCircle className="h-4 w-4 text-tactical-orange" />
+            <AlertDescription className="text-sm">
+              You've reached the maximum of {MAX_ACTIVE_PROGRAMS} active programs. Complete or remove one to add another.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {programs.length === 0 ? (
           <div className="text-center py-12">
@@ -181,7 +201,8 @@ const Programs = () => {
                 programType={program.program_type}
                 exerciseCount={program.exercise_count}
                 onSelect={handleSelectProgram}
-                isSelected={activeProgram === program.id}
+                isActive={isProgamActive(program.id)}
+                canAdd={canAddProgram()}
               />
             ))}
           </div>

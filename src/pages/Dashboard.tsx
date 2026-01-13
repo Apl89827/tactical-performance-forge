@@ -7,6 +7,7 @@ import EditableStats from "../components/home/EditableStats";
 import EditableWorkout from "../components/home/EditableWorkout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useActivePrograms } from "@/hooks/useActivePrograms";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -14,17 +15,10 @@ const Dashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Active program state
-  const [activeProgram, setActiveProgram] = useState<{
-    id: string;
-    title: string;
-    currentWeek: number;
-    totalWeeks: number;
-    completedWorkouts: number;
-    totalWorkouts: number;
-  } | null>(null);
+  // Use the hook for active programs
+  const { activePrograms, loading: programsLoading } = useActivePrograms();
   
-  // Real stats from program data
+  // Real stats from program data (combined from all active programs)
   const [programStats, setProgramStats] = useState({
     phase: "-",
     week: "-",
@@ -47,7 +41,6 @@ const Dashboard = () => {
   useEffect(() => {
     async function getUserData() {
       try {
-        // Get the current user
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
@@ -55,69 +48,15 @@ const Dashboard = () => {
           return;
         }
         
-        // Get profile data including active program
+        // Get profile data
         const { data: profile } = await supabase
           .from('profiles')
-          .select('*, active_program_id, program_start_date, first_name, last_name')
+          .select('*, first_name, last_name')
           .eq('id', user.id)
           .single();
         
         if (profile) {
           setProfileData(profile);
-          
-          // Fetch active program details
-          if (profile.active_program_id) {
-            const { data: program } = await supabase
-              .from('workout_programs')
-              .select('id, title, duration_weeks, days_per_week')
-              .eq('id', profile.active_program_id)
-              .single();
-            
-            if (program) {
-              // Get workout completion stats
-              const { data: workouts } = await supabase
-                .from('user_scheduled_workouts')
-                .select('id, status, week_number, date')
-                .eq('user_id', user.id)
-                .eq('program_id', program.id)
-                .order('date', { ascending: true });
-              
-              const completed = workouts?.filter(w => w.status === 'completed').length || 0;
-              const total = workouts?.length || program.duration_weeks * program.days_per_week;
-              const remaining = total - completed;
-              
-              // Calculate current week based on program start date
-              let currentWeekNum = 1;
-              if (profile.program_start_date) {
-                const startDate = new Date(profile.program_start_date);
-                const today = new Date();
-                const daysDiff = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                currentWeekNum = Math.min(Math.max(1, Math.ceil((daysDiff + 1) / 7)), program.duration_weeks);
-              }
-              
-              // Calculate phase (4 weeks per phase for SFAS-style programs)
-              const weeksPerPhase = 4;
-              const currentPhase = Math.ceil(currentWeekNum / weeksPerPhase);
-              const phaseNames = ["Foundation", "Build", "Peak"];
-              const phaseName = phaseNames[currentPhase - 1] || `Phase ${currentPhase}`;
-              
-              setActiveProgram({
-                id: program.id,
-                title: program.title,
-                currentWeek: currentWeekNum,
-                totalWeeks: program.duration_weeks,
-                completedWorkouts: completed,
-                totalWorkouts: total,
-              });
-              
-              // Set real program stats
-              setProgramStats({
-                phase: phaseName,
-                week: `${currentWeekNum} of ${program.duration_weeks}`,
-                workoutsRemaining: `${remaining} Left`
-              });
-            }
-          }
         }
         
         // Check if user is admin
@@ -176,8 +115,6 @@ const Dashboard = () => {
               type: w.day_type || 'Training',
             }))
           );
-
-          // Stats are now calculated from active program, not upcoming workouts
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -188,6 +125,31 @@ const Dashboard = () => {
     
     getUserData();
   }, [navigate]);
+  
+  // Calculate combined stats from all active programs
+  useEffect(() => {
+    if (activePrograms.length === 0) {
+      setProgramStats({ phase: "-", week: "-", workoutsRemaining: "-" });
+      return;
+    }
+
+    // Sum up remaining workouts from all programs
+    const totalRemaining = activePrograms.reduce((sum, p) => 
+      sum + (p.totalWorkouts - p.completedWorkouts), 0);
+
+    // Show primary program's phase/week (first one)
+    const primary = activePrograms[0];
+    const weeksPerPhase = 4;
+    const currentPhase = Math.ceil(primary.currentWeek / weeksPerPhase);
+    const phaseNames = ["Foundation", "Build", "Peak"];
+    const phaseName = phaseNames[currentPhase - 1] || `Phase ${currentPhase}`;
+
+    setProgramStats({
+      phase: phaseName,
+      week: `${primary.currentWeek} of ${primary.totalWeeks}`,
+      workoutsRemaining: `${totalRemaining} Left`
+    });
+  }, [activePrograms]);
   
   // Format date as "Day, Month Date"
   const formatDate = (date: Date) => {
@@ -208,7 +170,7 @@ const Dashboard = () => {
     setTodaysWorkout(updatedWorkout);
   };
 
-  if (loading) {
+  if (loading || programsLoading) {
     return (
       <MobileLayout hideBackButton={true}>
         <div className="flex items-center justify-center h-full">
@@ -240,38 +202,54 @@ const Dashboard = () => {
           <p className="text-muted-foreground">Let's crush today's workout</p>
         </header>
         
-        {/* Active Program Banner */}
-        {activeProgram ? (
-          <section className="mb-6">
-            <div className="bg-gradient-to-r from-tactical-blue/20 to-tactical-blue/5 rounded-lg border border-tactical-blue/30 p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p className="text-xs text-tactical-blue font-medium uppercase tracking-wide">Current Program</p>
-                  <h3 className="font-semibold text-lg">{activeProgram.title}</h3>
-                </div>
-                <span className="bg-tactical-blue/20 text-tactical-blue text-xs py-1 px-2 rounded">
-                  Week {activeProgram.currentWeek} of {activeProgram.totalWeeks}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-tactical-blue rounded-full transition-all"
-                    style={{ width: `${(activeProgram.completedWorkouts / activeProgram.totalWorkouts) * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {activeProgram.completedWorkouts}/{activeProgram.totalWorkouts}
-                </span>
-              </div>
+        {/* Active Programs Banner - Now shows multiple programs */}
+        {activePrograms.length > 0 ? (
+          <section className="mb-6 space-y-3">
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-tactical-blue font-medium uppercase tracking-wide">
+                Active Programs ({activePrograms.length}/2)
+              </p>
+              <button 
+                className="text-tactical-blue text-xs"
+                onClick={() => navigate("/programs")}
+              >
+                Manage
+              </button>
             </div>
+            {activePrograms.map((program) => (
+              <div 
+                key={program.id} 
+                className="bg-gradient-to-r from-tactical-blue/20 to-tactical-blue/5 rounded-lg border border-tactical-blue/30 p-4"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-semibold">{program.title}</h3>
+                    <span className="text-xs text-muted-foreground capitalize">{program.programType}</span>
+                  </div>
+                  <span className="bg-tactical-blue/20 text-tactical-blue text-xs py-1 px-2 rounded">
+                    Week {program.currentWeek} of {program.totalWeeks}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-tactical-blue rounded-full transition-all"
+                      style={{ width: `${(program.completedWorkouts / program.totalWorkouts) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {program.completedWorkouts}/{program.totalWorkouts}
+                  </span>
+                </div>
+              </div>
+            ))}
           </section>
         ) : (
           <section className="mb-6">
             <div className="bg-card rounded-lg border border-border p-4 text-center">
               <Layers className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-              <p className="font-medium mb-1">No Active Program</p>
-              <p className="text-sm text-muted-foreground mb-3">Select a training program to get started</p>
+              <p className="font-medium mb-1">No Active Programs</p>
+              <p className="text-sm text-muted-foreground mb-3">Stack up to 2 training programs at once</p>
               <Button onClick={() => navigate("/programs")} className="w-full">
                 Browse Programs
               </Button>
