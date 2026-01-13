@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.generate-program-schedule]
 verify_jwt = true
+
+[functions.import-sfas-program]
+verify_jwt = false
