@@ -46,6 +46,9 @@ interface ProfileData {
   bench_5rm?: number | null;
   deadlift_5rm?: number | null;
   squat_5rm?: number | null;
+  bench_3rm?: number | null;
+  deadlift_3rm?: number | null;
+  squat_3rm?: number | null;
 }
 
 const Profile = () => {
@@ -129,6 +132,9 @@ const Profile = () => {
           bench_5rm: profile.bench_5rm,
           deadlift_5rm: profile.deadlift_5rm,
           squat_5rm: profile.squat_5rm,
+          bench_3rm: profile.bench_3rm,
+          deadlift_3rm: profile.deadlift_3rm,
+          squat_3rm: profile.squat_3rm,
           selectionType: selectionData.selectionType || null,
           selectionDate: selectionData.selectionDate || null,
           ptScores: ptScoresFromDb ?? (selectionData.ptScores || {})
@@ -483,7 +489,10 @@ const Profile = () => {
                   swimTime: profileData?.swim_time || '',
                   bench5rm: profileData?.bench_5rm || undefined,
                   deadlift5rm: profileData?.deadlift_5rm || undefined,
-                  squat5rm: profileData?.squat_5rm || undefined
+                  squat5rm: profileData?.squat_5rm || undefined,
+                  bench3rm: profileData?.bench_3rm || undefined,
+                  deadlift3rm: profileData?.deadlift_3rm || undefined,
+                  squat3rm: profileData?.squat_3rm || undefined
                 }}
                 onComplete={() => {
                   setIsEditingPTScores(false);
@@ -513,6 +522,22 @@ const Profile = () => {
               <div className="flex justify-between items-center p-4">
                 <span>Pull-ups</span>
                 <span className="font-medium">{profileData?.ptScores?.pullups || "--"}</span>
+              </div>
+              <div className="p-4 border-t border-border">
+                <h3 className="font-medium mb-2">Strength Metrics (3RM)</h3>
+                <p className="text-xs text-muted-foreground">For SFAS program weight calculations</p>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Bench Press</span>
+                <span className="font-medium">{profileData?.bench_3rm ? `${profileData.bench_3rm} lbs` : "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Squat</span>
+                <span className="font-medium">{profileData?.squat_3rm ? `${profileData.squat_3rm} lbs` : "--"}</span>
+              </div>
+              <div className="flex justify-between items-center p-4">
+                <span>Deadlift</span>
+                <span className="font-medium">{profileData?.deadlift_3rm ? `${profileData.deadlift_3rm} lbs` : "--"}</span>
               </div>
               <div className="p-4 border-t border-border">
                 <h3 className="font-medium mb-2">Strength Metrics (5RM)</h3>

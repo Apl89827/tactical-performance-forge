@@ -16,6 +16,9 @@ interface PTScoreFormProps {
     bench5rm?: number;
     deadlift5rm?: number;
     squat5rm?: number;
+    bench3rm?: number;
+    deadlift3rm?: number;
+    squat3rm?: number;
   };
   onComplete: () => void;
 }
@@ -29,6 +32,9 @@ const PTScoreForm: React.FC<PTScoreFormProps> = ({ userId, initialValues, onComp
   const [bench5rm, setBench5rm] = useState(initialValues.bench5rm || '');
   const [deadlift5rm, setDeadlift5rm] = useState(initialValues.deadlift5rm || '');
   const [squat5rm, setSquat5rm] = useState(initialValues.squat5rm || '');
+  const [bench3rm, setBench3rm] = useState(initialValues.bench3rm || '');
+  const [deadlift3rm, setDeadlift3rm] = useState(initialValues.deadlift3rm || '');
+  const [squat3rm, setSquat3rm] = useState(initialValues.squat3rm || '');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +49,10 @@ const PTScoreForm: React.FC<PTScoreFormProps> = ({ userId, initialValues, onComp
           swim_time: swimTime,
           bench_5rm: bench5rm ? parseInt(bench5rm.toString()) : null,
           deadlift_5rm: deadlift5rm ? parseInt(deadlift5rm.toString()) : null,
-          squat_5rm: squat5rm ? parseInt(squat5rm.toString()) : null
+          squat_5rm: squat5rm ? parseInt(squat5rm.toString()) : null,
+          bench_3rm: bench3rm ? parseInt(bench3rm.toString()) : null,
+          deadlift_3rm: deadlift3rm ? parseInt(deadlift3rm.toString()) : null,
+          squat_3rm: squat3rm ? parseInt(squat3rm.toString()) : null
         })
         .eq('id', userId);
 
@@ -157,6 +166,50 @@ const PTScoreForm: React.FC<PTScoreFormProps> = ({ userId, initialValues, onComp
             value={pullups}
             onChange={(e) => setPullups(e.target.value)}
             placeholder="e.g., 10"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4 mt-4">
+        <h3 className="font-medium mb-2">Strength Metrics (3RM) - For SFAS Program</h3>
+        <p className="text-xs text-muted-foreground mb-3">Used to calculate percentage-based weights in the SFAS program</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label htmlFor="bench3rm" className="text-sm font-medium mb-1 block">
+            Bench 3RM (lbs)
+          </label>
+          <Input
+            id="bench3rm"
+            type="number"
+            value={bench3rm}
+            onChange={(e) => setBench3rm(e.target.value)}
+            placeholder="e.g., 200"
+          />
+        </div>
+        <div>
+          <label htmlFor="squat3rm" className="text-sm font-medium mb-1 block">
+            Squat 3RM (lbs)
+          </label>
+          <Input
+            id="squat3rm"
+            type="number"
+            value={squat3rm}
+            onChange={(e) => setSquat3rm(e.target.value)}
+            placeholder="e.g., 295"
+          />
+        </div>
+        <div>
+          <label htmlFor="deadlift3rm" className="text-sm font-medium mb-1 block">
+            Deadlift 3RM (lbs)
+          </label>
+          <Input
+            id="deadlift3rm"
+            type="number"
+            value={deadlift3rm}
+            onChange={(e) => setDeadlift3rm(e.target.value)}
+            placeholder="e.g., 335"
           />
         </div>
       </div>
