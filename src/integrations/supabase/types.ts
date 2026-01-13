@@ -231,8 +231,10 @@ export type Database = {
         Row: {
           active_program_id: string | null
           avatar_url: string | null
+          bench_3rm: number | null
           bench_5rm: number | null
           created_at: string
+          deadlift_3rm: number | null
           deadlift_5rm: number | null
           first_name: string | null
           focus_type: string | null
@@ -245,6 +247,7 @@ export type Database = {
           reminder_time: string | null
           selection_date: string | null
           selection_type: string | null
+          squat_3rm: number | null
           squat_5rm: number | null
           swim_time: string | null
           updated_at: string
@@ -253,8 +256,10 @@ export type Database = {
         Insert: {
           active_program_id?: string | null
           avatar_url?: string | null
+          bench_3rm?: number | null
           bench_5rm?: number | null
           created_at?: string
+          deadlift_3rm?: number | null
           deadlift_5rm?: number | null
           first_name?: string | null
           focus_type?: string | null
@@ -267,6 +272,7 @@ export type Database = {
           reminder_time?: string | null
           selection_date?: string | null
           selection_type?: string | null
+          squat_3rm?: number | null
           squat_5rm?: number | null
           swim_time?: string | null
           updated_at?: string
@@ -275,8 +281,10 @@ export type Database = {
         Update: {
           active_program_id?: string | null
           avatar_url?: string | null
+          bench_3rm?: number | null
           bench_5rm?: number | null
           created_at?: string
+          deadlift_3rm?: number | null
           deadlift_5rm?: number | null
           first_name?: string | null
           focus_type?: string | null
@@ -289,6 +297,7 @@ export type Database = {
           reminder_time?: string | null
           selection_date?: string | null
           selection_type?: string | null
+          squat_3rm?: number | null
           squat_5rm?: number | null
           swim_time?: string | null
           updated_at?: string
