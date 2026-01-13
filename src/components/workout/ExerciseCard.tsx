@@ -1,9 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Check, ChevronDown, ChevronUp, Play, Info, Dumbbell } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { useWeightRecommendations } from "@/hooks/useWeightRecommendations";
 import { supabase } from "@/integrations/supabase/client";
-
 interface ExerciseSet {
   setNumber: number;
   targetReps: string | number;
