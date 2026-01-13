@@ -9,8 +9,8 @@ const Calendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Load scheduled workouts for the current month
-  const [monthWorkouts, setMonthWorkouts] = useState<Record<string, any>>({});
+  // Load scheduled workouts for the current month - now supports multiple per day
+  const [monthWorkouts, setMonthWorkouts] = useState<Record<number, any[]>>({});
 
   useEffect(() => {
     const fetchMonthWorkouts = async () => {
@@ -25,22 +25,27 @@ const Calendar = () => {
 
       const { data } = await (supabase as any)
         .from('user_scheduled_workouts')
-        .select('id, date, title, day_type, status')
+        .select('id, date, title, day_type, status, program_id')
         .eq('user_id', user.id)
         .gte('date', toISODate(monthStart))
         .lte('date', toISODate(monthEnd));
 
       if (data) {
-        const map: Record<string, any> = {};
+        const map: Record<number, any[]> = {};
         data.forEach((w: any) => {
           const day = new Date(w.date).getDate();
-          map[day] = {
+          const workout = {
             id: w.id,
             date: new Date(w.date),
             title: w.title,
             type: w.day_type || 'Training',
             status: w.status || 'scheduled',
+            programId: w.program_id,
           };
+          if (!map[day]) {
+            map[day] = [];
+          }
+          map[day].push(workout);
         });
         setMonthWorkouts(map);
       }
@@ -94,7 +99,7 @@ const Calendar = () => {
         currentMonth: true,
         today: new Date(year, month, i).setHours(0, 0, 0, 0) === new Date().setHours(0, 0, 0, 0),
         date: new Date(year, month, i),
-        workout: monthWorkouts[i],
+        workouts: monthWorkouts[i] || [],
       });
     }
     
@@ -111,10 +116,34 @@ const Calendar = () => {
     return days;
   };
   
-  const handleDateSelect = (date: Date, workout?: any) => {
+  const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    if (workout) {
-      navigate(`/workout/${workout.id}`);
+  };
+  
+  const handleWorkoutClick = (workoutId: string) => {
+    navigate(`/workout/${workoutId}`);
+  };
+  
+  // Get short label for workout tile
+  const getShortLabel = (title: string, type: string) => {
+    // Return first word or abbreviation
+    const words = title.split(' ');
+    if (words[0].length <= 6) return words[0];
+    if (type === 'Strength') return 'STR';
+    if (type === 'Endurance') return 'END';
+    if (type === 'Work Capacity') return 'WC';
+    if (type === 'Recovery') return 'REC';
+    return words[0].slice(0, 4);
+  };
+  
+  const getWorkoutColor = (type: string, status: string) => {
+    if (status === 'completed') return 'bg-green-600';
+    switch (type) {
+      case 'Strength': return 'bg-tactical-blue';
+      case 'Work Capacity': return 'bg-tactical-orange';
+      case 'Endurance': return 'bg-green-600';
+      case 'Recovery': return 'bg-purple-500';
+      default: return 'bg-gray-500';
     }
   };
   
@@ -167,12 +196,11 @@ const Calendar = () => {
             {calendarDays.map((day, index) => (
               <div
                 key={index}
-                onClick={() => handleDateSelect(day.date, day.workout)}
+                onClick={() => handleDateSelect(day.date)}
                 className={`
-                  aspect-square p-1 flex flex-col items-center rounded
+                  min-h-[56px] p-1 flex flex-col items-center rounded cursor-pointer
                   ${day.currentMonth ? "" : "opacity-30"} 
                   ${day.today ? "border border-tactical-blue" : ""} 
-                  ${day.workout ? "cursor-pointer" : ""}
                   ${
                     day.date.setHours(0, 0, 0, 0) === selectedDate.setHours(0, 0, 0, 0) 
                     ? "bg-secondary/60" : ""
@@ -180,28 +208,32 @@ const Calendar = () => {
                 `}
               >
                 <span className={`
-                  text-center w-6 h-6 flex items-center justify-center rounded-full
+                  text-center w-5 h-5 text-xs flex items-center justify-center rounded-full
                   ${day.today ? "bg-tactical-blue text-white" : ""}
                 `}>
                   {day.day}
                 </span>
                 
-                {/* Workout indicator */}
-                {day.workout && (
-                  <div 
-                    className={`
-                      w-full h-1 mt-1 rounded-full 
-                      ${day.workout.status === 'completed' 
-                        ? "bg-green-600" 
-                        : day.workout.type === "Strength" ? "bg-tactical-blue" : 
-                        day.workout.type === "Work Capacity" ? "bg-tactical-orange" : 
-                        day.workout.type === "Endurance" ? "bg-green-600" : 
-                        day.workout.type === "Recovery" ? "bg-purple-500" :
-                        "bg-gray-500"
-                      }
-                    `}
-                  ></div>
-                )}
+                {/* Workout tiles - show up to 2 */}
+                <div className="w-full flex flex-col gap-0.5 mt-0.5">
+                  {day.workouts?.slice(0, 2).map((workout: any, wIndex: number) => (
+                    <div
+                      key={workout.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleWorkoutClick(workout.id);
+                      }}
+                      className={`
+                        w-full px-0.5 py-0.5 rounded text-[8px] text-white font-medium 
+                        text-center truncate cursor-pointer hover:opacity-80
+                        ${getWorkoutColor(workout.type, workout.status)}
+                      `}
+                      title={workout.title}
+                    >
+                      {getShortLabel(workout.title, workout.type)}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -211,34 +243,42 @@ const Calendar = () => {
         <div>
           <h3 className="font-semibold mb-3">{formatWorkoutDate(selectedDate)}</h3>
           
-          {calendarDays.find(
-            day => day.date.setHours(0, 0, 0, 0) === selectedDate.setHours(0, 0, 0, 0)
-          )?.workout ? (
-            <div className="bg-card rounded-lg border border-border p-4">
-              {(() => {
-                const day = calendarDays.find(
-                  day => day.date.setHours(0, 0, 0, 0) === selectedDate.setHours(0, 0, 0, 0)
-                );
-                const workout = day?.workout;
-                
-                return (
-                  <div>
+          {(() => {
+            const selectedDay = calendarDays.find(
+              day => day.date.setHours(0, 0, 0, 0) === selectedDate.setHours(0, 0, 0, 0)
+            );
+            const workouts = selectedDay?.workouts || [];
+            
+            if (workouts.length === 0) {
+              return (
+                <div className="bg-card rounded-lg border border-border p-4 text-center">
+                  <p className="text-muted-foreground">
+                    Rest day. Focus on recovery, mobility, and proper nutrition.
+                  </p>
+                </div>
+              );
+            }
+            
+            return (
+              <div className="space-y-3">
+                {workouts.map((workout: any) => (
+                  <div key={workout.id} className="bg-card rounded-lg border border-border p-4">
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-semibold text-lg">{workout?.title}</h3>
+                      <h3 className="font-semibold text-lg">{workout.title}</h3>
                       <div className="flex gap-2">
                         <div className={`
                           px-2 py-1 rounded text-xs
                           ${
-                            workout?.type === "Strength" ? "bg-tactical-blue/20 text-tactical-blue" : 
-                            workout?.type === "Work Capacity" ? "bg-tactical-orange/20 text-tactical-orange" : 
-                            workout?.type === "Endurance" ? "bg-green-600/20 text-green-600" : 
-                            workout?.type === "Recovery" ? "bg-purple-500/20 text-purple-500" :
+                            workout.type === "Strength" ? "bg-tactical-blue/20 text-tactical-blue" : 
+                            workout.type === "Work Capacity" ? "bg-tactical-orange/20 text-tactical-orange" : 
+                            workout.type === "Endurance" ? "bg-green-600/20 text-green-600" : 
+                            workout.type === "Recovery" ? "bg-purple-500/20 text-purple-500" :
                             "bg-gray-500/20 text-gray-500"
                           }
                         `}>
-                          {workout?.type}
+                          {workout.type}
                         </div>
-                        {workout?.status === 'completed' && (
+                        {workout.status === 'completed' && (
                           <div className="px-2 py-1 rounded text-xs bg-green-600/20 text-green-600">
                             ✓ Completed
                           </div>
@@ -246,28 +286,18 @@ const Calendar = () => {
                       </div>
                     </div>
                     
-                    <p className="text-muted-foreground mb-4">
-                      This workout focuses on {workout?.title.toLowerCase()} development with progressive overload.
-                    </p>
-                    
                     <button 
-                      className="btn-primary"
-                      onClick={() => navigate(`/workout/${workout?.id}`)}
-                      disabled={workout?.status === 'completed'}
+                      className="btn-primary w-full"
+                      onClick={() => handleWorkoutClick(workout.id)}
+                      disabled={workout.status === 'completed'}
                     >
-                      {workout?.status === 'completed' ? 'Workout Completed' : 'Start Workout'}
+                      {workout.status === 'completed' ? 'Workout Completed' : 'Start Workout'}
                     </button>
                   </div>
-                );
-              })()}
-            </div>
-          ) : (
-            <div className="bg-card rounded-lg border border-border p-4 text-center">
-              <p className="text-muted-foreground">
-                Rest day. Focus on recovery, mobility, and proper nutrition.
-              </p>
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </div>
         
         {/* Legend */}
