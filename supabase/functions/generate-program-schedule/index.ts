@@ -94,7 +94,8 @@ Deno.serve(async (req) => {
     
     // Map day_of_week to actual day offsets (1=Mon, 2=Tue, etc.)
     // For simplicity, spread workouts across the week
-    const dayOffsets = getDayOffsets(daysPerWeek);
+    const workoutDayOffsets = getDayOffsets(daysPerWeek);
+    const allDayOffsets = [0, 1, 2, 3, 4, 5, 6]; // All 7 days of the week
 
     for (let week = 1; week <= program.duration_weeks; week++) {
       // Get exercises for this week (or default to week 1 if not specified)
@@ -103,42 +104,62 @@ Deno.serve(async (req) => {
         ? weekExercises 
         : exercises?.filter(e => e.week_number === 1) || [];
 
-      for (let dayIndex = 0; dayIndex < daysPerWeek; dayIndex++) {
-        const dayOfWeek = dayIndex + 1;
-        const workoutDate = addDays(start, (week - 1) * 7 + dayOffsets[dayIndex]);
+      // Create entries for all 7 days of the week
+      for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+        const workoutDate = addDays(start, (week - 1) * 7 + dayOffset);
+        const isWorkoutDay = workoutDayOffsets.includes(dayOffset);
         
-        // Get exercises for this day
-        const dayExercises = fallbackExercises.filter(e => e.day_of_week === dayOfWeek);
-        const exercisesForDay = dayExercises.length > 0 
-          ? dayExercises 
-          : fallbackExercises.slice(
-              Math.floor(fallbackExercises.length / daysPerWeek) * dayIndex,
-              Math.floor(fallbackExercises.length / daysPerWeek) * (dayIndex + 1) || fallbackExercises.length
-            );
+        if (isWorkoutDay) {
+          // This is a workout day
+          const dayIndex = workoutDayOffsets.indexOf(dayOffset);
+          const dayOfWeek = dayIndex + 1;
+          
+          // Get exercises for this day
+          const dayExercises = fallbackExercises.filter(e => e.day_of_week === dayOfWeek);
+          const exercisesForDay = dayExercises.length > 0 
+            ? dayExercises 
+            : fallbackExercises.slice(
+                Math.floor(fallbackExercises.length / daysPerWeek) * dayIndex,
+                Math.floor(fallbackExercises.length / daysPerWeek) * (dayIndex + 1) || fallbackExercises.length
+              );
 
-        // Build the workout title based on day type
-        const dayTypes = ["Strength", "Work Capacity", "Endurance", "Recovery"];
-        const dayType = dayTypes[dayIndex % dayTypes.length];
-        
-        scheduledWorkouts.push({
-          user_id: userId,
-          program_id: programId,
-          date: workoutDate.toISOString().split("T")[0],
-          title: `Week ${week} - Day ${dayIndex + 1}: ${dayType}`,
-          day_type: dayType,
-          week_number: week,
-          status: "scheduled",
-          source: "program_generator",
-          exercises: exercisesForDay.map((e, idx) => ({
-            movement_name: e.movement_name,
-            sets: e.sets,
-            reps: e.reps,
-            notes: e.notes || "",
-            order_position: idx + 1,
-            is_bodyweight_percentage: e.is_bodyweight_percentage || false,
-            bodyweight_percentage: e.bodyweight_percentage || null,
-          })),
-        });
+          // Build the workout title based on day type
+          const dayTypes = ["Strength", "Work Capacity", "Endurance", "Recovery"];
+          const dayType = dayTypes[dayIndex % dayTypes.length];
+          
+          scheduledWorkouts.push({
+            user_id: userId,
+            program_id: programId,
+            date: workoutDate.toISOString().split("T")[0],
+            title: `Week ${week} - Day ${dayIndex + 1}: ${dayType}`,
+            day_type: dayType,
+            week_number: week,
+            status: "scheduled",
+            source: "program_generator",
+            exercises: exercisesForDay.map((e, idx) => ({
+              movement_name: e.movement_name,
+              sets: e.sets,
+              reps: e.reps,
+              notes: e.notes || "",
+              order_position: idx + 1,
+              is_bodyweight_percentage: e.is_bodyweight_percentage || false,
+              bodyweight_percentage: e.bodyweight_percentage || null,
+            })),
+          });
+        } else {
+          // This is a rest day
+          scheduledWorkouts.push({
+            user_id: userId,
+            program_id: programId,
+            date: workoutDate.toISOString().split("T")[0],
+            title: `Week ${week} - Rest Day`,
+            day_type: "Rest",
+            week_number: week,
+            status: "rest",
+            source: "program_generator",
+            exercises: [],
+          });
+        }
       }
     }
 

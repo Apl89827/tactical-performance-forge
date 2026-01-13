@@ -128,18 +128,21 @@ const Calendar = () => {
   
   // Get short label for workout tile
   const getShortLabel = (title: string, type: string) => {
-    // Return first word or abbreviation
-    const words = title.split(' ');
-    if (words[0].length <= 6) return words[0];
+    // Return abbreviation based on type
+    if (type === 'Rest') return 'REST';
     if (type === 'Strength') return 'STR';
     if (type === 'Endurance') return 'END';
     if (type === 'Work Capacity') return 'WC';
     if (type === 'Recovery') return 'REC';
+    // Fallback to first word
+    const words = title.split(' ');
+    if (words[0].length <= 4) return words[0];
     return words[0].slice(0, 4);
   };
   
   const getWorkoutColor = (type: string, status: string) => {
     if (status === 'completed') return 'bg-green-600';
+    if (status === 'rest' || type === 'Rest') return 'bg-muted-foreground/40';
     switch (type) {
       case 'Strength': return 'bg-tactical-blue';
       case 'Work Capacity': return 'bg-tactical-orange';
@@ -305,7 +308,7 @@ const Calendar = () => {
         {/* Legend */}
         <div className="mt-6 border-t border-border pt-4">
           <h4 className="font-medium text-sm mb-2">Legend</h4>
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-3 gap-2 text-xs">
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-tactical-blue mr-2"></div>
               <span>Strength</span>
@@ -321,6 +324,10 @@ const Calendar = () => {
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-purple-500 mr-2"></div>
               <span>Recovery</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 rounded-full bg-muted-foreground/40 mr-2"></div>
+              <span>Rest Day</span>
             </div>
           </div>
         </div>
