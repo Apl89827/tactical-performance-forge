@@ -18,6 +18,7 @@ import RoleManager from "@/components/admin/RoleManager";
 import ConjugateTemplateManager from "@/components/admin/ConjugateTemplateManager";
 import { MovementLibraryManager } from "@/components/admin/MovementLibraryManager";
 import { AnalyticsDashboard } from "@/components/admin/AnalyticsDashboard";
+import AdminProgramBuilder from "@/components/admin/AdminProgramBuilder";
 
 interface Content {
   id: string;
@@ -268,6 +269,10 @@ const Admin = () => {
             <TabsTrigger value="movements">Movements</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="programs">
+            <AdminProgramBuilder />
+          </TabsContent>
 
           <TabsContent value="content">
             {!isAddingContent ? (
