@@ -19,10 +19,71 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    // Verify authentication
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid authorization header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create client with user's JWT to verify authentication
+    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await userSupabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      console.error("JWT verification failed:", claimsError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const authenticatedUserId = claimsData.claims.sub;
+    console.log(`Authenticated user: ${authenticatedUserId}`);
+
+    // Parse request body
     const { userId, programId, startDate }: ScheduleRequest = await req.json();
+
+    // Verify user is operating on their own data
+    if (userId !== authenticatedUserId) {
+      // Check if user is an admin or coach for this user
+      const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data: isAdmin } = await adminSupabase.rpc("has_role", { 
+        _user_id: authenticatedUserId, 
+        _role: "admin" 
+      });
+      
+      const { data: coachAssignment } = await adminSupabase
+        .from("coach_assignments")
+        .select("id")
+        .eq("coach_id", authenticatedUserId)
+        .eq("athlete_id", userId)
+        .single();
+
+      if (!isAdmin && !coachAssignment) {
+        console.error(`User ${authenticatedUserId} attempted to access data for user ${userId}`);
+        return new Response(
+          JSON.stringify({ error: "Forbidden: Cannot access another user's data" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      console.log(`Authorized access: admin=${!!isAdmin}, coach=${!!coachAssignment}`);
+    }
+
+    // Use service role for database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log(`Generating schedule for user ${userId}, program ${programId}, starting ${startDate}`);
 
