@@ -259,8 +259,9 @@ const Admin = () => {
   return (
     <MobileLayout title={isAddingContent ? (isEditingContent ? "Edit Content" : "Add Content") : "Admin"}>
       <div className="mobile-safe-area">
-        <Tabs defaultValue="content" className="w-full">
-          <TabsList className="mb-4 grid w-full grid-cols-5">
+        <Tabs defaultValue="programs" className="w-full">
+          <TabsList className="mb-4 grid w-full grid-cols-6">
+            <TabsTrigger value="programs">Programs</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
