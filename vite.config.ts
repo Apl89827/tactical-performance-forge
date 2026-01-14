@@ -44,6 +44,29 @@ export default defineConfig(({ mode }) => ({
             type: 'image/png',
             purpose: 'maskable'
           }
+        ],
+        shortcuts: [
+          {
+            name: 'Today\'s Workout',
+            short_name: 'Workout',
+            description: 'Start today\'s scheduled workout',
+            url: '/dashboard',
+            icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+          },
+          {
+            name: 'View Progress',
+            short_name: 'Progress',
+            description: 'Check your training progress',
+            url: '/progress',
+            icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+          },
+          {
+            name: 'Calendar',
+            short_name: 'Calendar',
+            description: 'View your workout schedule',
+            url: '/calendar',
+            icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+          }
         ]
       },
       workbox: {
