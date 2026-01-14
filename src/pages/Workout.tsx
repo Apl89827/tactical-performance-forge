@@ -7,6 +7,7 @@ import MobileLayout from "../components/layouts/MobileLayout";
 import WorkoutTimer from "../components/workout/WorkoutTimer";
 import SmartRestTimer from "../components/workout/SmartRestTimer";
 import ExerciseCard from "../components/workout/ExerciseCard";
+import CardioExerciseCard from "../components/workout/CardioExerciseCard";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { Clock, CheckCircle } from "lucide-react";
 
@@ -18,6 +19,12 @@ interface ScheduledExercise {
   order_position: number;
   is_bodyweight_percentage?: boolean;
   bodyweight_percentage?: number | null;
+  // Cardio-specific fields
+  exercise_type?: string | null;
+  distance?: number | null;
+  distance_unit?: string | null;
+  target_time?: string | null;
+  target_pace?: string | null;
 }
 
 interface UserMaxLifts {
@@ -36,6 +43,12 @@ interface ExerciseSetState {
   weight: number | null;
   completedReps: string | number | null;
   isCompleted: boolean;
+  // Cardio-specific
+  targetDistance?: number | null;
+  actualDistance?: number | null;
+  distanceUnit?: string;
+  targetTime?: string | null;
+  actualTime?: string | null;
 }
 
 const toISODate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
@@ -81,11 +94,21 @@ const Workout = () => {
       isBodyweightPercentage?: boolean;
       bodyweightPercentage?: number;
       userMaxLifts?: UserMaxLifts | null;
+      // Cardio fields
+      exerciseType?: string;
+      targetDistance?: number | null;
+      targetTime?: string | null;
+      targetPace?: string | null;
+      distanceUnit?: string;
     }>;
 
     return scheduled.exercises
       .sort((a, b) => a.order_position - b.order_position)
       .map((ex, idx) => {
+        const isCardio = ex.exercise_type === "cardio" || 
+          ex.movement_name?.toLowerCase().includes("run") ||
+          ex.movement_name?.toLowerCase().includes("ruck");
+        
         const baseSets: ExerciseSetState[] = Array.from({ length: ex.sets }).map((_, i) => {
           const key = `${idx}-${i + 1}`;
           return (
@@ -95,6 +118,12 @@ const Workout = () => {
               weight: null,
               completedReps: null,
               isCompleted: false,
+              // Cardio-specific defaults
+              targetDistance: ex.distance,
+              actualDistance: null,
+              distanceUnit: ex.distance_unit || "miles",
+              targetTime: ex.target_time,
+              actualTime: null,
             }
           );
         });
@@ -104,11 +133,17 @@ const Workout = () => {
           name: ex.movement_name,
           sets: baseSets,
           notes: ex.notes || "",
-          restTime: 90,
+          restTime: isCardio ? 180 : 90, // Longer rest for cardio
           video: "",
           isBodyweightPercentage: !!ex.is_bodyweight_percentage,
           bodyweightPercentage: ex.bodyweight_percentage ?? undefined,
           userMaxLifts,
+          // Cardio fields
+          exerciseType: isCardio ? "cardio" : (ex.exercise_type || "strength"),
+          targetDistance: ex.distance,
+          targetTime: ex.target_time,
+          targetPace: ex.target_pace,
+          distanceUnit: ex.distance_unit || "miles",
         };
       });
   }, [scheduled, setsState, userMaxLifts]);
@@ -270,7 +305,14 @@ const Workout = () => {
   const persistSetLog = async (
     exerciseIndex: number,
     setNumber: number,
-    updates: Partial<{ completed: boolean; actual_weight: number | null; actual_reps: number | null }>,
+    updates: Partial<{ 
+      completed: boolean; 
+      actual_weight: number | null; 
+      actual_reps: number | null;
+      actual_distance: number | null;
+      actual_time: string | null;
+      distance_unit: string | null;
+    }>,
     targetReps?: number | string
   ) => {
     if (!workoutLogId) return;
@@ -295,6 +337,10 @@ const Workout = () => {
             actual_reps: updates.actual_reps ?? null,
             actual_weight: updates.actual_weight ?? null,
             completed: updates.completed ?? false,
+            // Cardio fields
+            actual_distance: updates.actual_distance ?? null,
+            actual_time: updates.actual_time ?? null,
+            distance_unit: updates.distance_unit ?? null,
           })
           .select("id")
           .single();
@@ -319,6 +365,12 @@ const Workout = () => {
         weight: field === "weight" ? (value === "" ? null : Number(value)) : prev[key]?.weight ?? null,
         completedReps: field === "completedReps" ? (value === "" ? null : value) : prev[key]?.completedReps ?? null,
         isCompleted: field === "isCompleted" ? !!value : prev[key]?.isCompleted ?? false,
+        // Cardio fields
+        targetDistance: prev[key]?.targetDistance,
+        actualDistance: field === "actualDistance" ? value : prev[key]?.actualDistance ?? null,
+        distanceUnit: prev[key]?.distanceUnit || "miles",
+        targetTime: prev[key]?.targetTime,
+        actualTime: field === "actualTime" ? value : prev[key]?.actualTime ?? null,
       },
     }));
 
@@ -328,6 +380,10 @@ const Workout = () => {
     } else if (field === "completedReps") {
       const repsVal = value === "" ? null : Number(value);
       persistSetLog(exerciseIndex, setNumber, { actual_reps: repsVal }, setsState[key]?.targetReps as any);
+    } else if (field === "actualDistance") {
+      persistSetLog(exerciseIndex, setNumber, { actual_distance: value }, setsState[key]?.targetReps as any);
+    } else if (field === "actualTime") {
+      persistSetLog(exerciseIndex, setNumber, { actual_time: value }, setsState[key]?.targetReps as any);
     } else if (field === "isCompleted") {
       persistSetLog(exerciseIndex, setNumber, { completed: !!value }, setsState[key]?.targetReps as any);
       // Auto-advance will be handled by UI state below
@@ -430,28 +486,69 @@ const Workout = () => {
         <section className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Exercises</h2>
           <div className="space-y-1">
-            {exercisesForUI.map((exercise, exerciseIndex) => (
-              <ExerciseCard
-                key={exercise.id}
-                id={exercise.id}
-                index={exerciseIndex}
-                name={exercise.name}
-                sets={exercise.sets}
-                notes={exercise.notes}
-                restTime={exercise.restTime}
-                video={exercise.video}
-                isActive={activeExerciseIndex === exerciseIndex}
-                isBodyweightPercentage={exercise.isBodyweightPercentage}
-                bodyweightPercentage={exercise.bodyweightPercentage}
-                userMaxLifts={exercise.userMaxLifts ?? undefined}
-                onSetComplete={(exIdx, setIdx, isCompleted) => {
-                  updateSetData(exIdx, setIdx, "isCompleted", isCompleted);
-                  if (isCompleted) startRestTimer(exercise.restTime);
-                }}
-                onSetDataChange={updateSetData}
-                onRestTimerStart={startRestTimer}
-              />
-            ))}
+            {exercisesForUI.map((exercise, exerciseIndex) => {
+              const isCardio = exercise.exerciseType === "cardio";
+              
+              if (isCardio) {
+                // Convert sets to cardio format
+                const cardioSets = exercise.sets.map(s => ({
+                  setNumber: s.setNumber,
+                  targetDistance: exercise.targetDistance ?? null,
+                  targetTime: exercise.targetTime ?? null,
+                  actualDistance: s.actualDistance ?? null,
+                  actualTime: s.actualTime ?? null,
+                  distanceUnit: (exercise.distanceUnit || "miles") as "miles" | "meters" | "km",
+                  isCompleted: s.isCompleted,
+                }));
+                
+                return (
+                  <CardioExerciseCard
+                    key={exercise.id}
+                    id={exercise.id}
+                    index={exerciseIndex}
+                    name={exercise.name}
+                    sets={cardioSets}
+                    notes={exercise.notes}
+                    restTime={exercise.restTime}
+                    video={exercise.video}
+                    isActive={activeExerciseIndex === exerciseIndex}
+                    targetDistance={exercise.targetDistance}
+                    targetTime={exercise.targetTime}
+                    targetPace={exercise.targetPace}
+                    distanceUnit={(exercise.distanceUnit || "miles") as "miles" | "meters" | "km"}
+                    onSetComplete={(exIdx, setIdx, isCompleted) => {
+                      updateSetData(exIdx, setIdx, "isCompleted", isCompleted);
+                      if (isCompleted) startRestTimer(exercise.restTime);
+                    }}
+                    onSetDataChange={updateSetData}
+                    onRestTimerStart={startRestTimer}
+                  />
+                );
+              }
+              
+              return (
+                <ExerciseCard
+                  key={exercise.id}
+                  id={exercise.id}
+                  index={exerciseIndex}
+                  name={exercise.name}
+                  sets={exercise.sets}
+                  notes={exercise.notes}
+                  restTime={exercise.restTime}
+                  video={exercise.video}
+                  isActive={activeExerciseIndex === exerciseIndex}
+                  isBodyweightPercentage={exercise.isBodyweightPercentage}
+                  bodyweightPercentage={exercise.bodyweightPercentage}
+                  userMaxLifts={exercise.userMaxLifts ?? undefined}
+                  onSetComplete={(exIdx, setIdx, isCompleted) => {
+                    updateSetData(exIdx, setIdx, "isCompleted", isCompleted);
+                    if (isCompleted) startRestTimer(exercise.restTime);
+                  }}
+                  onSetDataChange={updateSetData}
+                  onRestTimerStart={startRestTimer}
+                />
+              );
+            })}
           </div>
         </section>
 

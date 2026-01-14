@@ -38,6 +38,7 @@ interface Movement {
   subcategory?: string;
   description?: string;
   video_url?: string;
+  exercise_type?: string; // "strength" | "cardio" | "plyometric" | "mobility"
 }
 
 interface Exercise {
@@ -51,6 +52,12 @@ interface Exercise {
   bodyweight_percentage?: number;
   week_number?: number;
   day_of_week?: number;
+  // Cardio-specific fields
+  exercise_type?: string;
+  distance?: number | null;
+  distance_unit?: string | null; // "miles" | "meters" | "km"
+  target_time?: string | null;
+  target_pace?: string | null;
 }
 
 interface Program {
@@ -151,13 +158,19 @@ const AdminProgramBuilder = () => {
   const addExerciseFromLibrary = (movement: Movement) => {
     if (!currentProgram) return;
     
+    const isCardio = movement.exercise_type === "cardio" || movement.category === "cardio";
+    
     const newExercise: Exercise = {
       movement_name: movement.name,
-      sets: 3,
-      reps: 10,
+      sets: isCardio ? 1 : 3,
+      reps: isCardio ? 0 : 10,
       order_position: currentProgram.exercises.length,
       is_bodyweight_percentage: false,
-      bodyweight_percentage: 45
+      bodyweight_percentage: 45,
+      exercise_type: movement.exercise_type || "strength",
+      distance: isCardio ? 2 : undefined,
+      distance_unit: isCardio ? "miles" : undefined,
+      target_time: isCardio ? "" : undefined,
     };
     
     setCurrentProgram({
@@ -271,7 +284,12 @@ const AdminProgramBuilder = () => {
           is_bodyweight_percentage: ex.is_bodyweight_percentage || false,
           bodyweight_percentage: ex.bodyweight_percentage || null,
           week_number: ex.week_number,
-          day_of_week: ex.day_of_week
+          day_of_week: ex.day_of_week,
+          // Cardio fields
+          distance: ex.distance || null,
+          distance_unit: ex.distance_unit || null,
+          target_time: ex.target_time || null,
+          target_pace: ex.target_pace || null,
         }));
 
         const { error } = await supabase
@@ -450,7 +468,12 @@ const AdminProgramBuilder = () => {
                     >
                       <div>
                         <p className="font-medium text-sm">{movement.name}</p>
-                        <p className="text-xs text-muted-foreground">{movement.category}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground">{movement.category}</p>
+                          {(movement.exercise_type === "cardio" || movement.category === "cardio") && (
+                            <Badge variant="outline" className="text-xs py-0">🏃 Cardio</Badge>
+                          )}
+                        </div>
                       </div>
                       <PlusCircle className="h-4 w-4 text-primary" />
                     </div>
@@ -479,71 +502,147 @@ const AdminProgramBuilder = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {currentProgram.exercises.map((exercise, index) => (
-                  <div key={index} className="p-4 border rounded-lg bg-background">
-                    <div className="flex gap-3">
-                      <div className="flex-1 space-y-3">
-                        <Input
-                          value={exercise.movement_name}
-                          onChange={(e) => updateExercise(index, 'movement_name', e.target.value)}
-                          placeholder="Exercise name"
-                        />
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Sets</Label>
+                {currentProgram.exercises.map((exercise, index) => {
+                  const isCardio = exercise.exercise_type === "cardio";
+                  
+                  return (
+                    <div key={index} className="p-4 border rounded-lg bg-background">
+                      <div className="flex gap-3">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-2">
                             <Input
-                              type="number"
-                              min="1"
-                              value={exercise.sets}
-                              onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value) || 1)}
+                              value={exercise.movement_name}
+                              onChange={(e) => updateExercise(index, 'movement_name', e.target.value)}
+                              placeholder="Exercise name"
+                              className="flex-1"
                             />
+                            {isCardio && (
+                              <Badge variant="secondary" className="shrink-0">🏃 Cardio</Badge>
+                            )}
                           </div>
-                          <div>
-                            <Label className="text-xs">Reps</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={exercise.reps}
-                              onChange={(e) => updateExercise(index, 'reps', parseInt(e.target.value) || 1)}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={exercise.is_bodyweight_percentage || false}
-                            onCheckedChange={(checked) => updateExercise(index, 'is_bodyweight_percentage', checked)}
-                          />
-                          <Label className="text-xs">Calculate as % of bodyweight</Label>
-                          {exercise.is_bodyweight_percentage && (
-                            <Input
-                              type="number"
-                              className="w-20 ml-2"
-                              value={exercise.bodyweight_percentage || 45}
-                              onChange={(e) => updateExercise(index, 'bodyweight_percentage', parseInt(e.target.value))}
-                            />
+                          
+                          {isCardio ? (
+                            /* Cardio Exercise Fields */
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <Label className="text-xs">Distance</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.1"
+                                    value={exercise.distance || ""}
+                                    onChange={(e) => updateExercise(index, 'distance', parseFloat(e.target.value) || 0)}
+                                    placeholder="2"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Unit</Label>
+                                  <Select
+                                    value={exercise.distance_unit || "miles"}
+                                    onValueChange={(v) => updateExercise(index, 'distance_unit', v)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="miles">Miles</SelectItem>
+                                      <SelectItem value="meters">Meters</SelectItem>
+                                      <SelectItem value="km">Kilometers</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Rounds</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={exercise.sets}
+                                    onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value) || 1)}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-xs">Target Time (MM:SS)</Label>
+                                  <Input
+                                    value={exercise.target_time || ""}
+                                    onChange={(e) => updateExercise(index, 'target_time', e.target.value)}
+                                    placeholder="14:00"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Target Pace (optional)</Label>
+                                  <Input
+                                    value={exercise.target_pace || ""}
+                                    onChange={(e) => updateExercise(index, 'target_pace', e.target.value)}
+                                    placeholder="7:00/mile"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Strength Exercise Fields */
+                            <>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-xs">Sets</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={exercise.sets}
+                                    onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value) || 1)}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Reps</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={exercise.reps}
+                                    onChange={(e) => updateExercise(index, 'reps', parseInt(e.target.value) || 1)}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={exercise.is_bodyweight_percentage || false}
+                                  onCheckedChange={(checked) => updateExercise(index, 'is_bodyweight_percentage', checked)}
+                                />
+                                <Label className="text-xs">Calculate as % of bodyweight</Label>
+                                {exercise.is_bodyweight_percentage && (
+                                  <Input
+                                    type="number"
+                                    className="w-20 ml-2"
+                                    value={exercise.bodyweight_percentage || 45}
+                                    onChange={(e) => updateExercise(index, 'bodyweight_percentage', parseInt(e.target.value))}
+                                  />
+                                )}
+                              </div>
+                            </>
                           )}
+                          
+                          <Textarea
+                            value={exercise.notes || ''}
+                            onChange={(e) => updateExercise(index, 'notes', e.target.value)}
+                            placeholder="Notes (optional)"
+                            rows={2}
+                          />
                         </div>
-                        <Textarea
-                          value={exercise.notes || ''}
-                          onChange={(e) => updateExercise(index, 'notes', e.target.value)}
-                          placeholder="Notes (optional)"
-                          rows={2}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => moveExercise(index, 'up')} disabled={index === 0}>
-                          <ArrowUp className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => moveExercise(index, 'down')} disabled={index === currentProgram.exercises.length - 1}>
-                          <ArrowDown className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => removeExercise(index)} className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => moveExercise(index, 'up')} disabled={index === 0}>
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => moveExercise(index, 'down')} disabled={index === currentProgram.exercises.length - 1}>
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => removeExercise(index)} className="text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

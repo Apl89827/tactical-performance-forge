@@ -148,6 +148,7 @@ export type Database = {
           description: string | null
           difficulty_level: string | null
           equipment_needed: string[] | null
+          exercise_type: string | null
           form_cues: Json | null
           id: string
           is_bodyweight: boolean | null
@@ -163,6 +164,7 @@ export type Database = {
           description?: string | null
           difficulty_level?: string | null
           equipment_needed?: string[] | null
+          exercise_type?: string | null
           form_cues?: Json | null
           id?: string
           is_bodyweight?: boolean | null
@@ -178,6 +180,7 @@ export type Database = {
           description?: string | null
           difficulty_level?: string | null
           equipment_needed?: string[] | null
+          exercise_type?: string | null
           form_cues?: Json | null
           id?: string
           is_bodyweight?: boolean | null
@@ -493,43 +496,58 @@ export type Database = {
       }
       user_set_logs: {
         Row: {
+          actual_distance: number | null
           actual_reps: number | null
+          actual_time: string | null
           actual_weight: number | null
           completed: boolean
           created_at: string
+          distance_unit: string | null
           exercise_index: number
           id: string
           notes: string | null
           set_number: number
+          target_distance: number | null
           target_reps: number | null
+          target_time: string | null
           target_weight: number | null
           updated_at: string
           workout_log_id: string
         }
         Insert: {
+          actual_distance?: number | null
           actual_reps?: number | null
+          actual_time?: string | null
           actual_weight?: number | null
           completed?: boolean
           created_at?: string
+          distance_unit?: string | null
           exercise_index: number
           id?: string
           notes?: string | null
           set_number: number
+          target_distance?: number | null
           target_reps?: number | null
+          target_time?: string | null
           target_weight?: number | null
           updated_at?: string
           workout_log_id: string
         }
         Update: {
+          actual_distance?: number | null
           actual_reps?: number | null
+          actual_time?: string | null
           actual_weight?: number | null
           completed?: boolean
           created_at?: string
+          distance_unit?: string | null
           exercise_index?: number
           id?: string
           notes?: string | null
           set_number?: number
+          target_distance?: number | null
           target_reps?: number | null
+          target_time?: string | null
           target_weight?: number | null
           updated_at?: string
           workout_log_id?: string
@@ -574,6 +592,8 @@ export type Database = {
           bodyweight_percentage: number | null
           created_at: string
           day_of_week: number | null
+          distance: number | null
+          distance_unit: string | null
           id: string
           is_bodyweight_percentage: boolean
           movement_name: string
@@ -582,12 +602,16 @@ export type Database = {
           program_id: string
           reps: number
           sets: number
+          target_pace: string | null
+          target_time: string | null
           week_number: number | null
         }
         Insert: {
           bodyweight_percentage?: number | null
           created_at?: string
           day_of_week?: number | null
+          distance?: number | null
+          distance_unit?: string | null
           id?: string
           is_bodyweight_percentage?: boolean
           movement_name: string
@@ -596,12 +620,16 @@ export type Database = {
           program_id: string
           reps?: number
           sets?: number
+          target_pace?: string | null
+          target_time?: string | null
           week_number?: number | null
         }
         Update: {
           bodyweight_percentage?: number | null
           created_at?: string
           day_of_week?: number | null
+          distance?: number | null
+          distance_unit?: string | null
           id?: string
           is_bodyweight_percentage?: boolean
           movement_name?: string
@@ -610,6 +638,8 @@ export type Database = {
           program_id?: string
           reps?: number
           sets?: number
+          target_pace?: string | null
+          target_time?: string | null
           week_number?: number | null
         }
         Relationships: [
