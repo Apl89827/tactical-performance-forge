@@ -41,23 +41,24 @@ export const useProgressData = () => {
 
   const fetchProgressData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
       if (!user) return;
 
       // Fetch PT metrics history
       const { data: ptData } = await supabase
         .from('pt_metrics')
-        .select('*')
+        .select('recorded_at, run_time, pushups, situps, pullups')
         .eq('user_id', user.id)
         .order('recorded_at', { ascending: true });
 
       if (ptData && ptData.length > 0) {
-        const formattedPT = ptData.map(m => ({
+        const formattedPT: PTMetric[] = ptData.map(m => ({
           date: new Date(m.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           runTime: m.run_time ? parseRunTime(m.run_time) : undefined,
-          pushups: m.pushups || undefined,
-          situps: m.situps || undefined,
-          pullups: m.pullups || undefined
+          pushups: m.pushups ?? undefined,
+          situps: m.situps ?? undefined,
+          pullups: m.pullups ?? undefined
         }));
         setPTMetrics(formattedPT);
       }
@@ -65,7 +66,7 @@ export const useProgressData = () => {
       // Fetch workout completion stats
       const { data: scheduledWorkouts } = await supabase
         .from('user_scheduled_workouts')
-        .select('id, status, week_number, program_id')
+        .select('id, status, week_number')
         .eq('user_id', user.id);
 
       if (scheduledWorkouts) {
@@ -73,9 +74,8 @@ export const useProgressData = () => {
         const total = scheduledWorkouts.length;
         const adherence = total > 0 ? Math.round((completed / total) * 100) : 0;
         
-        // Calculate current week
-        const weeks = scheduledWorkouts.map(w => w.week_number || 1);
-        const maxWeek = Math.max(...weeks, 1);
+        const weeks = scheduledWorkouts.map(w => w.week_number ?? 1);
+        const maxWeek = weeks.length > 0 ? Math.max(...weeks) : 1;
 
         setWorkoutStats({
           totalCompleted: completed,
@@ -86,41 +86,25 @@ export const useProgressData = () => {
         });
       }
 
-      // Fetch strength data from set logs
-      const { data: workoutLogs } = await supabase
-        .from('user_workout_logs')
-        .select('id, completed_at')
-        .eq('user_id', user.id)
-        .not('completed_at', 'is', null)
-        .order('completed_at', { ascending: true });
+      // Fetch strength metrics from profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('squat_5rm, bench_5rm, deadlift_5rm')
+        .eq('id', user.id)
+        .single();
 
-      if (workoutLogs && workoutLogs.length > 0) {
-        // For now, use profile strength metrics directly
-        {
-          // Group by exercise and find max weights over time
-          const strengthByExercise: Record<string, StrengthMetric[]> = {};
-          
-          // For now, we'll use profile strength metrics
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('squat_5rm, bench_5rm, deadlift_5rm')
-            .eq('id', user.id)
-            .single();
-
-          if (profile) {
-            if (profile.squat_5rm) {
-              strengthByExercise['Squat'] = [{ date: 'Current', exercise: 'Squat', weight: profile.squat_5rm }];
-            }
-            if (profile.bench_5rm) {
-              strengthByExercise['Bench Press'] = [{ date: 'Current', exercise: 'Bench Press', weight: profile.bench_5rm }];
-            }
-            if (profile.deadlift_5rm) {
-              strengthByExercise['Deadlift'] = [{ date: 'Current', exercise: 'Deadlift', weight: profile.deadlift_5rm }];
-            }
-          }
-
-          setStrengthMetrics(strengthByExercise);
+      if (profile) {
+        const strengthByExercise: Record<string, StrengthMetric[]> = {};
+        if (profile.squat_5rm) {
+          strengthByExercise['Squat'] = [{ date: 'Current', exercise: 'Squat', weight: profile.squat_5rm }];
         }
+        if (profile.bench_5rm) {
+          strengthByExercise['Bench Press'] = [{ date: 'Current', exercise: 'Bench Press', weight: profile.bench_5rm }];
+        }
+        if (profile.deadlift_5rm) {
+          strengthByExercise['Deadlift'] = [{ date: 'Current', exercise: 'Deadlift', weight: profile.deadlift_5rm }];
+        }
+        setStrengthMetrics(strengthByExercise);
       }
 
     } catch (error) {
