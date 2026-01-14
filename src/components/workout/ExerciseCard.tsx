@@ -1,7 +1,12 @@
-import React, { useState, useMemo } from "react";
-import { Check, ChevronDown, ChevronUp, Play, Info, Dumbbell } from "lucide-react";
+import React, { useState, useMemo, useCallback } from "react";
+import { Check, ChevronDown, ChevronUp, Info, Dumbbell, TrendingUp } from "lucide-react";
 import { useWeightRecommendations } from "@/hooks/useWeightRecommendations";
+import { useProgressiveOverload } from "@/hooks/useProgressiveOverload";
+import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { supabase } from "@/integrations/supabase/client";
+import ExerciseVideoLink from "./ExerciseVideoLink";
+import ProgressiveOverloadBadge from "./ProgressiveOverloadBadge";
+
 interface ExerciseSet {
   setNumber: number;
   targetReps: string | number;
@@ -97,6 +102,7 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [showNotes, setShowNotes] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const { triggerHaptic } = useHapticFeedback();
 
   React.useEffect(() => {
     const getUser = async () => {
@@ -108,11 +114,45 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
 
   const { recommendation } = useWeightRecommendations(userId || '', name);
   
-  const toggleExpand = () => setIsExpanded(!isExpanded);
-  const toggleNotes = (e: React.MouseEvent) => {
+  // Progressive overload recommendation
+  const targetReps = typeof sets[0]?.targetReps === 'number' ? sets[0].targetReps : 8;
+  const { recommendation: progressiveRec, historyCount } = useProgressiveOverload({
+    userId: userId || '',
+    exerciseName: name,
+    targetSets: sets.length,
+    targetReps,
+  });
+  
+  const toggleExpand = useCallback(() => {
+    setIsExpanded(prev => !prev);
+    triggerHaptic("light");
+  }, [triggerHaptic]);
+
+  const toggleNotes = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowNotes(!showNotes);
-  };
+    setShowNotes(prev => !prev);
+    triggerHaptic("light");
+  }, [triggerHaptic]);
+
+  // One-tap set completion handler
+  const handleOneTapComplete = useCallback((setIndex: number) => {
+    const set = sets[setIndex];
+    const newCompleted = !set.isCompleted;
+    
+    // Haptic feedback
+    if (newCompleted) {
+      triggerHaptic("success");
+    } else {
+      triggerHaptic("light");
+    }
+    
+    onSetComplete(index, setIndex, newCompleted);
+    
+    // Auto-start rest timer on completion
+    if (newCompleted) {
+      onRestTimerStart(restTime);
+    }
+  }, [sets, index, onSetComplete, onRestTimerStart, restTime, triggerHaptic]);
   
   // Calculate the recommended weight
   const weightCalculation = useMemo(() => {
@@ -156,7 +196,16 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
       }
     }
 
-    // AI recommendation
+    // Progressive overload recommendation (prioritize this for training)
+    if (progressiveRec && progressiveRec.recommendedWeight > 0) {
+      return {
+        weight: progressiveRec.recommendedWeight,
+        source: 'progressive' as const,
+        description: progressiveRec.reasoning,
+      };
+    }
+
+    // AI recommendation fallback
     if (recommendation) {
       return {
         weight: recommendation.recommendedWeight,
@@ -166,7 +215,7 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
     }
 
     return null;
-  }, [isBodyweightPercentage, bodyweightPercentage, userMaxLifts, notes, name, recommendation]);
+  }, [isBodyweightPercentage, bodyweightPercentage, userMaxLifts, notes, name, recommendation, progressiveRec]);
 
   const recommendedWeight = weightCalculation?.weight ?? null;
   
@@ -189,6 +238,7 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
   }, [notes, name, userMaxLifts]);
 
   const displayName = name.replace(/^ex_/, '').replace(/_/g, ' ');
+  const completedSets = sets.filter(s => s.isCompleted).length;
   
   return (
     <div 
@@ -211,14 +261,20 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
           <div>
             <h3 className="font-medium capitalize">{displayName}</h3>
             <p className="text-xs text-muted-foreground">
-              {sets.length} sets • {typeof sets[0]?.targetReps === 'number' && sets[0].targetReps > 0 ? `${sets[0].targetReps} reps` : 'AMRAP'}
+              {completedSets}/{sets.length} sets • {typeof sets[0]?.targetReps === 'number' && sets[0].targetReps > 0 ? `${sets[0].targetReps} reps` : 'AMRAP'}
               {isBodyweightPercentage && bodyweightPercentage && (
                 <span className="ml-1">• {bodyweightPercentage}% BW</span>
               )}
             </p>
           </div>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center space-x-2">
+          {historyCount > 0 && (
+            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full flex items-center">
+              <TrendingUp size={10} className="mr-1" />
+              {historyCount}
+            </span>
+          )}
           <button onClick={toggleNotes} className="p-2 text-muted-foreground hover:text-primary">
             <Info size={18} />
           </button>
@@ -237,16 +293,12 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
       
       {isExpanded && (
         <div className="px-4 pb-4 animate-fade-in">
-          <div className="aspect-video bg-primary/10 mb-4 rounded-md flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors">
-            <div className="flex flex-col items-center">
-              <Play size={32} className="text-primary mb-1" />
-              <span className="text-xs text-muted-foreground">Tap to view demonstration</span>
-            </div>
-          </div>
+          {/* YouTube Video Link */}
+          <ExerciseVideoLink exerciseName={name} videoUrl={video} />
           
           {missingMaxData && (
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md flex items-center">
-              <Dumbbell className="h-5 w-5 text-amber-500 mr-2" />
+              <Dumbbell className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
                   Set up your {missingMaxData} 3RM in Profile
@@ -255,8 +307,20 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
               </div>
             </div>
           )}
+
+          {/* Progressive Overload Badge */}
+          {progressiveRec && progressiveRec.recommendedWeight > 0 && !missingMaxData && (
+            <ProgressiveOverloadBadge
+              progressionType={progressiveRec.progressionType}
+              recommendedWeight={progressiveRec.recommendedWeight}
+              percentChange={progressiveRec.percentChange}
+              reasoning={progressiveRec.reasoning}
+              confidence={progressiveRec.confidence}
+            />
+          )}
           
-          {recommendedWeight && !missingMaxData && (
+          {/* Fallback weight recommendation (when no progressive data) */}
+          {recommendedWeight && !missingMaxData && !progressiveRec?.recommendedWeight && (
             <div className="mb-4 p-3 bg-primary/10 rounded-md flex items-center">
               <Dumbbell className="h-5 w-5 text-primary mr-2" />
               <div>
@@ -272,7 +336,7 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
               {sets.map((set, setIndex) => (
                 <div 
                   key={setIndex} 
-                  className={`flex items-center space-x-3 p-3 rounded-md transition-colors ${
+                  className={`flex items-center space-x-3 p-3 rounded-md transition-all ${
                     set.isCompleted ? "bg-primary/10 border border-primary/30" : "bg-secondary/30"
                   }`}
                 >
@@ -284,10 +348,11 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
                       <div className="relative">
                         <input
                           type="number"
-                          value={set.weight !== null ? set.weight : (recommendedWeight || '')}
+                          inputMode="numeric"
+                          value={set.weight !== null ? set.weight : (progressiveRec?.recommendedWeight || recommendedWeight || '')}
                           onChange={(e) => onSetDataChange(index, setIndex, "weight", e.target.value)}
-                          className="w-16 p-2 text-center rounded bg-background border border-border"
-                          placeholder={recommendedWeight ? String(recommendedWeight) : "lbs"}
+                          className="w-16 p-2 text-center rounded bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
+                          placeholder={progressiveRec?.recommendedWeight ? String(progressiveRec.recommendedWeight) : (recommendedWeight ? String(recommendedWeight) : "lbs")}
                         />
                         <span className="absolute right-2 top-2 text-xs text-muted-foreground pointer-events-none">lbs</span>
                       </div>
@@ -295,25 +360,27 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
                       <div className="relative flex-1">
                         <input
                           type="text"
+                          inputMode="numeric"
                           value={set.completedReps || ""}
                           onChange={(e) => onSetDataChange(index, setIndex, "completedReps", e.target.value)}
-                          className="w-full p-2 text-center rounded bg-background border border-border"
+                          className="w-full p-2 text-center rounded bg-background border border-border focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
                           placeholder={String(set.targetReps) || "max"}
                         />
                         <span className="absolute right-2 top-2 text-xs text-muted-foreground pointer-events-none">reps</span>
                       </div>
                     </div>
                   </div>
+                  {/* One-tap complete button */}
                   <button
-                    onClick={() => {
-                      onSetComplete(index, setIndex, !set.isCompleted);
-                      if (!set.isCompleted) onRestTimerStart(restTime);
-                    }}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                      set.isCompleted ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                    onClick={() => handleOneTapComplete(setIndex)}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+                      set.isCompleted 
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" 
+                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                     }`}
+                    aria-label={set.isCompleted ? "Mark set incomplete" : "Complete set"}
                   >
-                    {set.isCompleted && <Check size={18} />}
+                    {set.isCompleted ? <Check size={22} strokeWidth={3} /> : <Check size={20} className="opacity-50" />}
                   </button>
                 </div>
               ))}
@@ -321,8 +388,11 @@ const ExerciseCard: React.FC<ExerciseProps> = ({
           </div>
           
           <button
-            onClick={() => onRestTimerStart(restTime)}
-            className="w-full p-3 text-sm bg-secondary hover:bg-secondary/80 rounded-md flex items-center justify-center space-x-2 transition-colors"
+            onClick={() => {
+              onRestTimerStart(restTime);
+              triggerHaptic("medium");
+            }}
+            className="w-full p-3 text-sm bg-secondary hover:bg-secondary/80 rounded-md flex items-center justify-center space-x-2 transition-colors active:scale-[0.98]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 6v6l4 2M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

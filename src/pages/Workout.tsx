@@ -1,11 +1,13 @@
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import MobileLayout from "../components/layouts/MobileLayout";
 import WorkoutTimer from "../components/workout/WorkoutTimer";
+import SmartRestTimer from "../components/workout/SmartRestTimer";
 import ExerciseCard from "../components/workout/ExerciseCard";
+import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { Clock, CheckCircle } from "lucide-react";
 
 interface ScheduledExercise {
