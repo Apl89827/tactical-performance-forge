@@ -1,10 +1,12 @@
 import { useCallback } from "react";
 
+type HapticType = "light" | "medium" | "heavy" | "success" | "warning" | "error" | "selection" | "impact";
+
 /**
  * Hook for triggering haptic feedback on supported devices
  */
 export const useHapticFeedback = () => {
-  const triggerHaptic = useCallback((type: "light" | "medium" | "heavy" | "success" | "warning" | "error" = "medium") => {
+  const triggerHaptic = useCallback((type: HapticType = "medium") => {
     // Check if vibration API is supported
     if (!("vibrate" in navigator)) return;
 
@@ -31,6 +33,14 @@ export const useHapticFeedback = () => {
           // Long buzz for error
           navigator.vibrate(100);
           break;
+        case "selection":
+          // Very light tap for selections/navigation
+          navigator.vibrate(5);
+          break;
+        case "impact":
+          // Strong single tap for impacts
+          navigator.vibrate(40);
+          break;
         default:
           navigator.vibrate(25);
       }
@@ -51,5 +61,28 @@ export const useHapticFeedback = () => {
     }
   }, []);
 
-  return { triggerHaptic, timerComplete };
+  const buttonPress = useCallback(() => {
+    triggerHaptic("light");
+  }, [triggerHaptic]);
+
+  const tabChange = useCallback(() => {
+    triggerHaptic("selection");
+  }, [triggerHaptic]);
+
+  const formSubmit = useCallback(() => {
+    triggerHaptic("medium");
+  }, [triggerHaptic]);
+
+  const pullToRefresh = useCallback(() => {
+    triggerHaptic("impact");
+  }, [triggerHaptic]);
+
+  return { 
+    triggerHaptic, 
+    timerComplete,
+    buttonPress,
+    tabChange,
+    formSubmit,
+    pullToRefresh
+  };
 };

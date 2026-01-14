@@ -28,6 +28,7 @@ import Programs from "./pages/Programs";
 
 // Components
 import OfflineIndicator from "./components/pwa/OfflineIndicator";
+import SmartInstallBanner from "./components/pwa/SmartInstallBanner";
 
 // Create auth context
 export const AuthContext = createContext<{
@@ -149,6 +150,7 @@ const App = () => {
       <AuthContext.Provider value={{ session, user, isAdmin }}>
         <TooltipProvider>
           <OfflineIndicator />
+          <SmartInstallBanner />
           <Toaster />
           <Sonner position="top-center" closeButton={true} />
           <BrowserRouter>
