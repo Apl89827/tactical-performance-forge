@@ -22,6 +22,7 @@ interface Movement {
   difficulty_level: string | null;
   is_bodyweight: boolean;
   equipment_needed: string[] | null;
+  exercise_type: string; // "strength" | "cardio" | "plyometric" | "mobility"
 }
 
 export const MovementLibraryManager = () => {
@@ -41,7 +42,8 @@ export const MovementLibraryManager = () => {
     video_url: "",
     difficulty_level: "intermediate",
     is_bodyweight: false,
-    equipment_needed: []
+    equipment_needed: [],
+    exercise_type: "strength",
   });
 
   useEffect(() => {
@@ -91,7 +93,8 @@ export const MovementLibraryManager = () => {
             video_url: formData.video_url || null,
             difficulty_level: formData.difficulty_level || null,
             is_bodyweight: formData.is_bodyweight || false,
-            equipment_needed: formData.equipment_needed || null
+            equipment_needed: formData.equipment_needed || null,
+            exercise_type: formData.exercise_type || "strength",
           }]);
 
         if (error) throw error;
@@ -134,7 +137,8 @@ export const MovementLibraryManager = () => {
       video_url: "",
       difficulty_level: "intermediate",
       is_bodyweight: false,
-      equipment_needed: []
+      equipment_needed: [],
+      exercise_type: "strength",
     });
     setEditingMovement(null);
   };
@@ -187,6 +191,23 @@ export const MovementLibraryManager = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
+                  <Label>Exercise Type *</Label>
+                  <Select
+                    value={formData.exercise_type || "strength"}
+                    onValueChange={(value: "strength" | "cardio" | "plyometric" | "mobility") => setFormData({ ...formData, exercise_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="strength">Strength</SelectItem>
+                      <SelectItem value="cardio">Cardio</SelectItem>
+                      <SelectItem value="plyometric">Plyometric</SelectItem>
+                      <SelectItem value="mobility">Mobility</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
                   <Label>Category *</Label>
                   <Select
                     value={formData.category}
@@ -200,9 +221,12 @@ export const MovementLibraryManager = () => {
                       <SelectItem value="dynamic_effort">Dynamic Effort</SelectItem>
                       <SelectItem value="accessory">Accessory</SelectItem>
                       <SelectItem value="gpp">GPP</SelectItem>
+                      <SelectItem value="cardio">Cardio</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>Subcategory</Label>
                   <Select
@@ -219,6 +243,10 @@ export const MovementLibraryManager = () => {
                       <SelectItem value="deadlift">Deadlift</SelectItem>
                       <SelectItem value="posterior_chain">Posterior Chain</SelectItem>
                       <SelectItem value="trunk">Trunk</SelectItem>
+                      <SelectItem value="running">Running</SelectItem>
+                      <SelectItem value="rucking">Rucking</SelectItem>
+                      <SelectItem value="swimming">Swimming</SelectItem>
+                      <SelectItem value="rowing">Rowing</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -298,6 +326,7 @@ export const MovementLibraryManager = () => {
             <SelectItem value="dynamic_effort">Dynamic Effort</SelectItem>
             <SelectItem value="accessory">Accessory</SelectItem>
             <SelectItem value="gpp">GPP</SelectItem>
+            <SelectItem value="cardio">Cardio</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -330,7 +359,9 @@ export const MovementLibraryManager = () => {
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 flex-wrap">
-                <Badge variant="secondary">{movement.category}</Badge>
+                <Badge variant={movement.exercise_type === "cardio" ? "default" : "secondary"}>
+                  {movement.exercise_type === "cardio" ? "🏃 Cardio" : movement.category}
+                </Badge>
                 <Badge variant="outline">{movement.difficulty_level}</Badge>
                 {movement.is_bodyweight && <Badge>Bodyweight</Badge>}
               </div>
