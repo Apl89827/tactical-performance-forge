@@ -660,8 +660,13 @@ export type Database = {
           description: string | null
           duration_weeks: number | null
           id: string
+          is_addon_program: boolean | null
           is_public: boolean | null
           program_type: string | null
+          recommendation_condition: string | null
+          recommendation_threshold_metric: string | null
+          recommendation_threshold_value: string | null
+          recommendation_type: string | null
           title: string
         }
         Insert: {
@@ -671,8 +676,13 @@ export type Database = {
           description?: string | null
           duration_weeks?: number | null
           id?: string
+          is_addon_program?: boolean | null
           is_public?: boolean | null
           program_type?: string | null
+          recommendation_condition?: string | null
+          recommendation_threshold_metric?: string | null
+          recommendation_threshold_value?: string | null
+          recommendation_type?: string | null
           title: string
         }
         Update: {
@@ -682,8 +692,13 @@ export type Database = {
           description?: string | null
           duration_weeks?: number | null
           id?: string
+          is_addon_program?: boolean | null
           is_public?: boolean | null
           program_type?: string | null
+          recommendation_condition?: string | null
+          recommendation_threshold_metric?: string | null
+          recommendation_threshold_value?: string | null
+          recommendation_type?: string | null
           title?: string
         }
         Relationships: []

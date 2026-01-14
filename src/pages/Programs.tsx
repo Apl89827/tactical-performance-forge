@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "@/components/layouts/MobileLayout";
 import ProgramCard from "@/components/programs/ProgramCard";
+import RecommendedProgramCard from "@/components/programs/RecommendedProgramCard";
 import StartProgramModal from "@/components/programs/StartProgramModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Dumbbell, AlertCircle } from "lucide-react";
+import { Loader2, Dumbbell, AlertCircle, Target } from "lucide-react";
 import { useActivePrograms } from "@/hooks/useActivePrograms";
+import { useProgramRecommendations } from "@/hooks/useProgramRecommendations";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Program {
@@ -35,6 +37,11 @@ const Programs = () => {
     refetch: refetchActivePrograms,
     MAX_ACTIVE_PROGRAMS 
   } = useActivePrograms();
+
+  const {
+    recommendations,
+    loading: recommendationsLoading,
+  } = useProgramRecommendations();
 
   useEffect(() => {
     fetchPrograms();
@@ -82,7 +89,25 @@ const Programs = () => {
   };
 
   const handleSelectProgram = (programId: string) => {
-    const program = programs.find((p) => p.id === programId);
+    // First check in regular programs
+    let program = programs.find((p) => p.id === programId);
+    
+    // If not found, check in recommendations
+    if (!program) {
+      const rec = recommendations.find((r) => r.programId === programId);
+      if (rec) {
+        program = {
+          id: rec.programId,
+          title: rec.programTitle,
+          description: rec.programDescription,
+          duration_weeks: rec.durationWeeks,
+          days_per_week: rec.daysPerWeek,
+          program_type: rec.programType,
+          exercise_count: 0,
+        };
+      }
+    }
+    
     if (!program) return;
 
     // Check if already active
@@ -133,7 +158,7 @@ const Programs = () => {
     }
   };
 
-  if (loading || activeProgramsLoading) {
+  if (loading || activeProgramsLoading || recommendationsLoading) {
     return (
       <MobileLayout title="Programs">
         <div className="flex items-center justify-center h-64">
@@ -142,6 +167,10 @@ const Programs = () => {
       </MobileLayout>
     );
   }
+
+  // Filter out recommended programs from the regular list
+  const recommendedProgramIds = new Set(recommendations.map((r) => r.programId));
+  const regularPrograms = programs.filter((p) => !recommendedProgramIds.has(p.id));
 
   return (
     <MobileLayout title="Programs">
@@ -180,7 +209,32 @@ const Programs = () => {
           </Alert>
         )}
 
-        {programs.length === 0 ? (
+        {/* Recommendations Section */}
+        {recommendations.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="h-5 w-5 text-amber-500" />
+              <h2 className="font-semibold text-lg">Recommended For You</h2>
+            </div>
+            <p className="text-muted-foreground text-sm mb-4">
+              Based on your PT scores, these programs can help you improve:
+            </p>
+            <div className="space-y-4">
+              {recommendations.map((rec) => (
+                <RecommendedProgramCard
+                  key={rec.programId}
+                  recommendation={rec}
+                  onSelect={handleSelectProgram}
+                  isActive={isProgamActive(rec.programId)}
+                  canAdd={canAddProgram()}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* All Programs Section */}
+        {regularPrograms.length === 0 && recommendations.length === 0 ? (
           <div className="text-center py-12">
             <Dumbbell className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="font-medium mb-2">No Programs Available</h3>
@@ -188,24 +242,29 @@ const Programs = () => {
               Programs will appear here once they're published by your coach.
             </p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {programs.map((program) => (
-              <ProgramCard
-                key={program.id}
-                id={program.id}
-                title={program.title}
-                description={program.description}
-                durationWeeks={program.duration_weeks}
-                daysPerWeek={program.days_per_week}
-                programType={program.program_type}
-                exerciseCount={program.exercise_count}
-                onSelect={handleSelectProgram}
-                isActive={isProgamActive(program.id)}
-                canAdd={canAddProgram()}
-              />
-            ))}
-          </div>
+        ) : regularPrograms.length > 0 && (
+          <>
+            {recommendations.length > 0 && (
+              <h2 className="font-semibold text-lg mb-3 mt-6">All Programs</h2>
+            )}
+            <div className="space-y-4">
+              {regularPrograms.map((program) => (
+                <ProgramCard
+                  key={program.id}
+                  id={program.id}
+                  title={program.title}
+                  description={program.description}
+                  durationWeeks={program.duration_weeks}
+                  daysPerWeek={program.days_per_week}
+                  programType={program.program_type}
+                  exerciseCount={program.exercise_count}
+                  onSelect={handleSelectProgram}
+                  isActive={isProgamActive(program.id)}
+                  canAdd={canAddProgram()}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
