@@ -109,8 +109,22 @@ const Profile = () => {
     }
   };
   
+  // Refetch profile when user changes (account switch)
   useEffect(() => {
     fetchProfile();
+    
+    // Listen for auth state changes to handle account switching
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Defer the fetch to avoid auth deadlocks
+        setTimeout(() => {
+          fetchProfile();
+          refetchProgress();
+        }, 0);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
   
   const handleLogout = async () => {
