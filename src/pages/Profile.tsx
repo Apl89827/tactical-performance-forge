@@ -10,6 +10,7 @@ import PhysicalMetricsCard from "@/components/profile/PhysicalMetricsCard";
 import PTScoresCard from "@/components/profile/PTScoresCard";
 import QuickStats from "@/components/profile/QuickStats";
 import SettingsSection from "@/components/profile/SettingsSection";
+import { useProgressData } from "@/hooks/useProgressData";
 
 interface ProfileData {
   id: string;
@@ -24,8 +25,8 @@ interface ProfileData {
     situps?: number;
     pullups?: number;
   };
-  selectionType?: string | null;
-  selectionDate?: string | null;
+  selection_type?: string | null;
+  selection_date?: string | null;
   swim_time?: string | null;
   bench_5rm?: number | null;
   deadlift_5rm?: number | null;
@@ -49,68 +50,67 @@ const Profile = () => {
   const [weight, setWeight] = useState<number | undefined>(undefined);
   const [selectionType, setSelectionType] = useState<string | null>(null);
   const [selectionDate, setSelectionDate] = useState<Date | undefined>(undefined);
+
+  // Use real workout stats from progress data hook
+  const { workoutStats, refetch: refetchProgress } = useProgressData();
+
+  const fetchProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { navigate("/login"); return; }
+      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (profileError) throw profileError;
+      
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('role', 'admin');
+      
+      const { data: latestMetrics } = await supabase
+        .from('pt_metrics')
+        .select('run_time, pushups, situps, pullups')
+        .eq('user_id', user.id)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      const ptScoresFromDb = latestMetrics ? {
+        runTime: latestMetrics.run_time || undefined,
+        pushups: latestMetrics.pushups || undefined,
+        situps: latestMetrics.situps || undefined,
+        pullups: latestMetrics.pullups || undefined,
+      } : undefined;
+      
+      const combinedProfile: ProfileData = {
+        ...profile,
+        id: user.id,
+        first_name: profile.first_name || user.user_metadata.first_name,
+        last_name: profile.last_name || user.user_metadata.last_name,
+        ptScores: ptScoresFromDb,
+      };
+      
+      setProfileData(combinedProfile);
+      setHeight(combinedProfile.height || undefined);
+      setWeight(combinedProfile.weight || undefined);
+      setSelectionType(combinedProfile.selection_type || null);
+      setSelectionDate(combinedProfile.selection_date ? new Date(combinedProfile.selection_date) : undefined);
+      setIsAdmin(roles && roles.length > 0);
+    } catch (error) {
+      console.error("Error loading profile:", error);
+      toast.error("Error loading profile data");
+    } finally {
+      setLoading(false);
+    }
+  };
   
   useEffect(() => {
-    async function getProfile() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { navigate("/login"); return; }
-        
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        if (profileError) throw profileError;
-        
-        const { data: roles } = await supabase
-          .from('user_roles')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('role', 'admin');
-        
-        const { data: latestMetrics } = await supabase
-          .from('pt_metrics')
-          .select('run_time, pushups, situps, pullups')
-          .eq('user_id', user.id)
-          .order('recorded_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        const ptScoresFromDb = latestMetrics ? {
-          runTime: latestMetrics.run_time || undefined,
-          pushups: latestMetrics.pushups || undefined,
-          situps: latestMetrics.situps || undefined,
-          pullups: latestMetrics.pullups || undefined,
-        } : undefined;
-        
-        const storedData = localStorage.getItem("profileData");
-        const selectionData = storedData ? JSON.parse(storedData) : {};
-        
-        const combinedProfile: ProfileData = {
-          ...profile,
-          id: user.id,
-          first_name: profile.first_name || user.user_metadata.first_name,
-          last_name: profile.last_name || user.user_metadata.last_name,
-          ptScores: ptScoresFromDb ?? (selectionData.ptScores || {}),
-          selectionType: selectionData.selectionType || null,
-          selectionDate: selectionData.selectionDate || null,
-        };
-        
-        setProfileData(combinedProfile);
-        setHeight(combinedProfile.height || undefined);
-        setWeight(combinedProfile.weight || undefined);
-        setSelectionType(combinedProfile.selectionType);
-        setSelectionDate(combinedProfile.selectionDate ? new Date(combinedProfile.selectionDate) : undefined);
-        setIsAdmin(roles && roles.length > 0);
-      } catch (error) {
-        console.error("Error loading profile:", error);
-        toast.error("Error loading profile data");
-      } finally {
-        setLoading(false);
-      }
-    }
-    getProfile();
+    fetchProfile();
   }, [navigate]);
   
   const handleLogout = async () => {
@@ -132,16 +132,42 @@ const Profile = () => {
     toast.success("Personal information updated");
   };
   
-  const handleSaveSelection = () => {
-    if (!selectionType || !selectionDate) {
+  const handleSaveSelection = async () => {
+    if (!selectionType || !selectionDate || !profileData) {
       toast.error("Please select both a selection type and date");
       return;
     }
-    const updatedProfile = { ...profileData, selectionType, selectionDate: selectionDate.toISOString() };
+    
+    // Save to database instead of localStorage
+    const { error } = await supabase
+      .from('profiles')
+      .update({ 
+        selection_type: selectionType, 
+        selection_date: selectionDate.toISOString().split('T')[0]
+      })
+      .eq('id', profileData.id);
+      
+    if (error) { 
+      toast.error("Failed to save selection info"); 
+      return; 
+    }
+    
+    const updatedProfile = { 
+      ...profileData, 
+      selection_type: selectionType, 
+      selection_date: selectionDate.toISOString().split('T')[0] 
+    };
     setProfileData(updatedProfile as ProfileData);
-    localStorage.setItem("profileData", JSON.stringify({ selectionType, selectionDate: selectionDate.toISOString() }));
     setIsEditingSelection(false);
     toast.success("Selection information updated");
+  };
+
+  const handlePTComplete = async () => {
+    // Refetch profile and progress data instead of reloading page
+    await fetchProfile();
+    await refetchProgress();
+    setIsEditingPTScores(false);
+    toast.success("PT scores updated");
   };
   
   if (loading) {
@@ -164,11 +190,12 @@ const Profile = () => {
           isAdmin={isAdmin}
         />
         
+        {/* Now using real data from useProgressData hook */}
         <QuickStats
-          workoutsCompleted={26}
-          adherence={92}
-          currentWeek={4}
-          totalWeeks={8}
+          workoutsCompleted={workoutStats.totalCompleted}
+          adherence={workoutStats.adherence}
+          currentWeek={workoutStats.currentWeek}
+          totalWeeks={workoutStats.totalWeeks}
         />
         
         <SelectionInfoCard
@@ -207,7 +234,7 @@ const Profile = () => {
           deadlift5rm={profileData?.deadlift_5rm}
           isEditing={isEditingPTScores}
           onEdit={() => setIsEditingPTScores(true)}
-          onComplete={() => { setIsEditingPTScores(false); window.location.reload(); }}
+          onComplete={handlePTComplete}
         />
         
         <SettingsSection isAdmin={isAdmin} onLogout={handleLogout} />

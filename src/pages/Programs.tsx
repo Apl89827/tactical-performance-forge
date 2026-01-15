@@ -6,10 +6,20 @@ import RecommendedProgramCard from "@/components/programs/RecommendedProgramCard
 import StartProgramModal from "@/components/programs/StartProgramModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Dumbbell, AlertCircle, Target } from "lucide-react";
+import { Loader2, Dumbbell, AlertCircle, Target, Trash2, AlertTriangle } from "lucide-react";
 import { useActivePrograms } from "@/hooks/useActivePrograms";
 import { useProgramRecommendations } from "@/hooks/useProgramRecommendations";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Program {
   id: string;
@@ -28,12 +38,15 @@ const Programs = () => {
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [programToRemove, setProgramToRemove] = useState<{id: string, title: string} | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const { 
     activePrograms, 
     loading: activeProgramsLoading, 
     canAddProgram, 
     isProgamActive,
+    removeProgram,
     refetch: refetchActivePrograms,
     MAX_ACTIVE_PROGRAMS 
   } = useActivePrograms();
@@ -158,6 +171,22 @@ const Programs = () => {
     }
   };
 
+  const handleRemoveProgram = async () => {
+    if (!programToRemove) return;
+    
+    setIsRemoving(true);
+    try {
+      await removeProgram(programToRemove.id);
+      toast.success(`"${programToRemove.title}" has been removed`);
+      setProgramToRemove(null);
+    } catch (error) {
+      console.error("Error removing program:", error);
+      toast.error("Failed to remove program");
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
   if (loading || activeProgramsLoading || recommendationsLoading) {
     return (
       <MobileLayout title="Programs">
@@ -182,20 +211,52 @@ const Programs = () => {
           </p>
         </div>
 
-        {/* Active Programs Summary */}
+        {/* Active Programs Summary with Remove Option */}
         {activePrograms.length > 0 && (
-          <div className="mb-6 p-4 bg-tactical-blue/10 rounded-lg border border-tactical-blue/30">
-            <h3 className="font-medium text-sm mb-2 text-tactical-blue">
-              Active Programs ({activePrograms.length}/{MAX_ACTIVE_PROGRAMS})
-            </h3>
-            <div className="space-y-2">
-              {activePrograms.map((program) => (
-                <div key={program.id} className="flex justify-between items-center text-sm">
-                  <span>{program.title}</span>
-                  <span className="text-muted-foreground">Week {program.currentWeek}/{program.totalWeeks}</span>
-                </div>
-              ))}
+          <div className="mb-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-sm text-tactical-blue">
+                Active Programs ({activePrograms.length}/{MAX_ACTIVE_PROGRAMS})
+              </h3>
             </div>
+            {activePrograms.map((program) => (
+              <div 
+                key={program.id} 
+                className="p-4 bg-tactical-blue/10 rounded-lg border border-tactical-blue/30"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold">{program.title}</span>
+                      <span className="text-xs bg-tactical-blue/20 text-tactical-blue px-2 py-0.5 rounded">
+                        Active
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Week {program.currentWeek}/{program.totalWeeks} • {program.completedWorkouts} workouts done
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-tactical-blue rounded-full transition-all"
+                          style={{ width: `${(program.completedWorkouts / program.totalWorkouts) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {Math.round((program.completedWorkouts / program.totalWorkouts) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setProgramToRemove({ id: program.programId, title: program.title })}
+                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors ml-3"
+                    title="Remove program"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -284,6 +345,40 @@ const Programs = () => {
         onConfirm={handleConfirmProgram}
         isLoading={isGenerating}
       />
+
+      {/* Remove Program Confirmation Dialog */}
+      <AlertDialog open={!!programToRemove} onOpenChange={() => setProgramToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Remove Program?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove <strong>"{programToRemove?.title}"</strong> from your active programs and delete all scheduled workouts associated with it. 
+              <br /><br />
+              <span className="text-destructive font-medium">This action cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRemoving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveProgram}
+              disabled={isRemoving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isRemoving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Program"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MobileLayout>
   );
 };

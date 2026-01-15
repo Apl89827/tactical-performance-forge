@@ -1,19 +1,35 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
-import { Activity, Target, TrendingUp } from "lucide-react";
+import { Activity, Target, TrendingUp, Dumbbell, Plus } from "lucide-react";
 import { useProgressData } from "@/hooks/useProgressData";
 import ProgressChart from "@/components/progress/ProgressChart";
 import StatCard from "@/components/progress/StatCard";
+import PTScoreForm from "@/components/profile/PTScoreForm";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const Progress = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
-  const { ptMetrics, workoutStats, loading } = useProgressData();
+  const [showPTForm, setShowPTForm] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const { ptMetrics, strengthMetrics, workoutStats, loading, refetch } = useProgressData();
   
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "pt-scores", label: "PT Scores" },
     { id: "strength", label: "Strength" },
   ];
+
+  // Get user ID for PT form
+  React.useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time);
@@ -29,6 +45,11 @@ const Progress = () => {
     return lowerIsBetter 
       ? ((first - last) / first * 100)
       : ((last - first) / first * 100);
+  };
+
+  const handlePTFormComplete = async () => {
+    await refetch();
+    setShowPTForm(false);
   };
 
   if (loading) {
@@ -131,10 +152,40 @@ const Progress = () => {
         
         {activeTab === "pt-scores" && (
           <div className="space-y-4">
+            {/* Add New PT Test Button */}
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowPTForm(true)}
+                size="sm"
+                className="gap-2"
+              >
+                <Plus size={16} />
+                Log PT Test
+              </Button>
+            </div>
+
+            {/* PT Form Modal */}
+            {showPTForm && userId && (
+              <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-card rounded-xl border border-border p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                  <h2 className="text-lg font-semibold mb-4">Record PT Test Results</h2>
+                  <PTScoreForm
+                    userId={userId}
+                    initialValues={{}}
+                    onComplete={handlePTFormComplete}
+                  />
+                </div>
+              </div>
+            )}
+
             {ptMetrics.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>No PT metrics recorded yet.</p>
-                <p className="text-sm mt-1">Add your scores in your profile.</p>
+              <div className="text-center py-12 bg-card rounded-xl border border-border">
+                <TrendingUp size={32} className="mx-auto text-muted-foreground mb-3" />
+                <p className="font-medium mb-1">No PT metrics recorded yet</p>
+                <p className="text-sm text-muted-foreground mb-4">Record your first PT test to start tracking progress</p>
+                <Button onClick={() => setShowPTForm(true)}>
+                  Record PT Test
+                </Button>
               </div>
             ) : (
               <>
@@ -177,10 +228,49 @@ const Progress = () => {
         
         {activeTab === "strength" && (
           <div className="space-y-4">
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Strength tracking coming soon!</p>
-              <p className="text-sm mt-1">Your lift history will appear here.</p>
-            </div>
+            {Object.keys(strengthMetrics).length > 0 ? (
+              <>
+                {Object.entries(strengthMetrics).map(([exercise, data]) => (
+                  <StatCard
+                    key={exercise}
+                    title={exercise}
+                    icon={<Dumbbell size={18} className="text-primary" />}
+                    value={data.length > 0 ? `${data[data.length - 1].weight} lbs` : '--'}
+                  >
+                    {data.length > 1 ? (
+                      <ProgressChart
+                        data={data.map(d => ({ date: d.date, value: d.weight }))}
+                        dataKey="value"
+                        formatValue={(v) => `${v} lbs`}
+                      />
+                    ) : (
+                      <div className="text-sm text-muted-foreground text-center py-4">
+                        Complete more workouts to see progression
+                      </div>
+                    )}
+                  </StatCard>
+                ))}
+                
+                <div className="bg-card rounded-xl border border-border p-4">
+                  <h3 className="font-semibold mb-2">How Strength is Tracked</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your strength metrics are pulled from your profile's 5RM values. 
+                    As you log workouts and update your maxes, your progression will appear here.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 bg-card rounded-xl border border-border">
+                <Dumbbell size={32} className="mx-auto text-muted-foreground mb-3" />
+                <p className="font-medium mb-1">No Strength Data Yet</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Your 5RM values from your profile will appear here. Update your profile to add your current maxes.
+                </p>
+                <Button variant="outline" onClick={() => navigate('/profile')}>
+                  Update Profile
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
