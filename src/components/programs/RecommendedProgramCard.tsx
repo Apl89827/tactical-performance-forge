@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, Clock, TrendingUp, Zap } from "lucide-react";
+import { Calendar, Clock, TrendingUp, Zap, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Recommendation } from "@/hooks/useProgramRecommendations";
@@ -7,6 +7,7 @@ import type { Recommendation } from "@/hooks/useProgramRecommendations";
 interface RecommendedProgramCardProps {
   recommendation: Recommendation;
   onSelect: (programId: string) => void;
+  onPreview: (programId: string) => void;
   isActive?: boolean;
   canAdd?: boolean;
 }
@@ -14,6 +15,7 @@ interface RecommendedProgramCardProps {
 const RecommendedProgramCard: React.FC<RecommendedProgramCardProps> = ({
   recommendation,
   onSelect,
+  onPreview,
   isActive = false,
   canAdd = true,
 }) => {
@@ -43,7 +45,10 @@ const RecommendedProgramCard: React.FC<RecommendedProgramCardProps> = ({
   const metricLabel = metric === "pushups" ? "Push-ups" : "1.5mi Run";
 
   return (
-    <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-lg border-2 border-amber-500/50 p-4 transition-all hover:border-amber-500">
+    <div 
+      className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-lg border-2 border-amber-500/50 p-4 transition-all hover:border-amber-500 cursor-pointer"
+      onClick={() => onPreview(programId)}
+    >
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-amber-500" />
@@ -93,14 +98,10 @@ const RecommendedProgramCard: React.FC<RecommendedProgramCardProps> = ({
         </div>
       </div>
 
-      <Button
-        onClick={() => onSelect(programId)}
-        variant="default"
-        className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-        disabled={isActive || (!canAdd && !isActive)}
-      >
-        {isActive ? "Currently Active" : canAdd ? "Add to Stack" : "Stack Full"}
-      </Button>
+      <div className="flex items-center justify-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+        <Eye size={16} />
+        <span>Tap to preview</span>
+      </div>
     </div>
   );
 };

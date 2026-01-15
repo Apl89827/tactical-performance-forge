@@ -310,10 +310,11 @@ const Programs = () => {
             </p>
             <div className="space-y-4">
               {recommendations.map((rec) => (
-                <RecommendedProgramCard
+              <RecommendedProgramCard
                   key={rec.programId}
                   recommendation={rec}
                   onSelect={handleSelectProgram}
+                  onPreview={handlePreviewProgram}
                   isActive={isProgamActive(rec.programId)}
                   canAdd={canAddProgram()}
                 />
