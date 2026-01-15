@@ -4,6 +4,7 @@ import MobileLayout from "@/components/layouts/MobileLayout";
 import ProgramCard from "@/components/programs/ProgramCard";
 import RecommendedProgramCard from "@/components/programs/RecommendedProgramCard";
 import StartProgramModal from "@/components/programs/StartProgramModal";
+import ProgramPreviewModal from "@/components/programs/ProgramPreviewModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Dumbbell, AlertCircle, Target, Trash2, AlertTriangle } from "lucide-react";
@@ -37,6 +38,8 @@ const Programs = () => {
   const [loading, setLoading] = useState(true);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [programToRemove, setProgramToRemove] = useState<{id: string, title: string} | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -99,6 +102,31 @@ const Programs = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePreviewProgram = (programId: string) => {
+    // First check in regular programs
+    let program = programs.find((p) => p.id === programId);
+    
+    // If not found, check in recommendations
+    if (!program) {
+      const rec = recommendations.find((r) => r.programId === programId);
+      if (rec) {
+        program = {
+          id: rec.programId,
+          title: rec.programTitle,
+          description: rec.programDescription,
+          duration_weeks: rec.durationWeeks,
+          days_per_week: rec.daysPerWeek,
+          program_type: rec.programType,
+          exercise_count: 0,
+        };
+      }
+    }
+    
+    if (!program) return;
+    setPreviewProgram(program);
+    setPreviewModalOpen(true);
   };
 
   const handleSelectProgram = (programId: string) => {
@@ -320,6 +348,7 @@ const Programs = () => {
                   programType={program.program_type}
                   exerciseCount={program.exercise_count}
                   onSelect={handleSelectProgram}
+                  onPreview={handlePreviewProgram}
                   isActive={isProgamActive(program.id)}
                   canAdd={canAddProgram()}
                 />
@@ -328,6 +357,20 @@ const Programs = () => {
           </>
         )}
       </div>
+
+      <ProgramPreviewModal
+        open={previewModalOpen}
+        onOpenChange={setPreviewModalOpen}
+        programId={previewProgram?.id || null}
+        programTitle={previewProgram?.title || ""}
+        programDescription={previewProgram?.description || null}
+        durationWeeks={previewProgram?.duration_weeks || 0}
+        daysPerWeek={previewProgram?.days_per_week || 0}
+        programType={previewProgram?.program_type || "strength"}
+        onSelectProgram={() => previewProgram && handleSelectProgram(previewProgram.id)}
+        isActive={previewProgram ? isProgamActive(previewProgram.id) : false}
+        canAdd={canAddProgram()}
+      />
 
       <StartProgramModal
         open={modalOpen}
