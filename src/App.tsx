@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,6 +28,7 @@ import Programs from "./pages/Programs";
 // Components
 import OfflineIndicator from "./components/pwa/OfflineIndicator";
 import SmartInstallBanner from "./components/pwa/SmartInstallBanner";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Create auth context
 export const AuthContext = createContext<{
@@ -146,12 +146,13 @@ const App = () => {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={{ session, user, isAdmin }}>
-        <TooltipProvider>
-          <OfflineIndicator />
-          <SmartInstallBanner />
-          <Toaster />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthContext.Provider value={{ session, user, isAdmin }}>
+          <TooltipProvider>
+            <OfflineIndicator />
+            <SmartInstallBanner />
+            <Toaster />
           <Sonner position="top-center" closeButton={true} />
           <BrowserRouter>
             <Routes>
@@ -236,10 +237,11 @@ const App = () => {
               {/* 404 route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthContext.Provider>
-    </QueryClientProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthContext.Provider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

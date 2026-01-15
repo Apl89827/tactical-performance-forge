@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,6 +7,7 @@ import WorkoutTimer from "../components/workout/WorkoutTimer";
 import SmartRestTimer from "../components/workout/SmartRestTimer";
 import ExerciseCard from "../components/workout/ExerciseCard";
 import CardioExerciseCard from "../components/workout/CardioExerciseCard";
+import WorkoutCompletionModal from "../components/workout/WorkoutCompletionModal";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { Clock, CheckCircle } from "lucide-react";
 
@@ -73,6 +73,7 @@ const Workout = () => {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isRestTimer, setIsRestTimer] = useState(false);
   const [workoutCompleted, setWorkoutCompleted] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [totalTime, setTotalTime] = useState(0);
 
@@ -428,12 +429,32 @@ const Workout = () => {
       }
 
       setWorkoutCompleted(true);
-      toast.success(`Workout completed! ${pct}% of sets completed.`);
+      setShowCompletionModal(true);
     } catch (e) {
       console.error(e);
       toast.error("Failed to complete workout");
     }
   };
+
+  // Calculate completion stats for modal
+  const completionStats = useMemo(() => {
+    let totalSets = 0;
+    let completedSets = 0;
+    exercisesForUI.forEach((ex) => {
+      ex.sets.forEach((s) => {
+        totalSets += 1;
+        if (s.isCompleted) completedSets += 1;
+      });
+    });
+    return {
+      title: workoutTitle,
+      totalTime,
+      setsCompleted: completedSets,
+      totalSets,
+      exercisesCompleted: exercisesForUI.filter(ex => ex.sets.every(s => s.isCompleted)).length,
+      totalExercises: exercisesForUI.length,
+    };
+  }, [exercisesForUI, workoutTitle, totalTime]);
 
   const formatTotalTime = () => {
     const hours = Math.floor(totalTime / 3600);
@@ -571,6 +592,12 @@ const Workout = () => {
           </button>
         </div>
       </div>
+
+      <WorkoutCompletionModal
+        isOpen={showCompletionModal}
+        onClose={() => setShowCompletionModal(false)}
+        workoutData={completionStats}
+      />
     </MobileLayout>
   );
 };

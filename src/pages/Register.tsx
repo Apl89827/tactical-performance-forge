@@ -1,8 +1,8 @@
-
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import EmailVerificationPending from "@/components/auth/EmailVerificationPending";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -11,6 +11,8 @@ const Register = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerificationPending, setShowVerificationPending] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +34,8 @@ const Register = () => {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Registration successful! Please check your email to verify your account.");
-        navigate("/login");
+        setRegisteredEmail(email);
+        setShowVerificationPending(true);
       }
     } catch (error) {
       toast.error("An unexpected error occurred");
@@ -42,6 +44,15 @@ const Register = () => {
       setIsLoading(false);
     }
   };
+
+  if (showVerificationPending) {
+    return (
+      <EmailVerificationPending 
+        email={registeredEmail} 
+        onBack={() => setShowVerificationPending(false)}
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-tactical-darkgray px-6 py-8">
