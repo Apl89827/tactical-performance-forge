@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../components/layouts/MobileLayout";
-import { Play, Clock, Calendar as CalendarIcon, BarChart2, Layers, ChevronRight } from "lucide-react";
+import { Play, Clock, Calendar as CalendarIcon, BarChart2, Layers, ChevronRight, TrendingUp } from "lucide-react";
 import CountdownTile from "../components/home/CountdownTile";
 import EditableStats from "../components/home/EditableStats";
 import EditableWorkout from "../components/home/EditableWorkout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useActivePrograms } from "@/hooks/useActivePrograms";
+import { useProgressData } from "@/hooks/useProgressData";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -17,6 +18,9 @@ const Dashboard = () => {
   
   // Use the hook for active programs
   const { activePrograms, loading: programsLoading } = useActivePrograms();
+  
+  // Use progress data hook for real metrics
+  const { ptMetrics, workoutStats, loading: progressLoading } = useProgressData();
   
   // Real stats from program data (combined from all active programs)
   const [programStats, setProgramStats] = useState({
@@ -48,10 +52,10 @@ const Dashboard = () => {
           return;
         }
         
-        // Get profile data
+        // Get profile data including selection info from DB
         const { data: profile } = await supabase
           .from('profiles')
-          .select('*, first_name, last_name')
+          .select('*, first_name, last_name, selection_date, selection_type')
           .eq('id', user.id)
           .single();
         
@@ -150,6 +154,30 @@ const Dashboard = () => {
       workoutsRemaining: `${totalRemaining} Left`
     });
   }, [activePrograms]);
+
+  // Get latest PT metrics for progress display
+  const getLatestMetrics = () => {
+    if (ptMetrics.length === 0) {
+      return { runTime: null, pushups: null, previousRun: null, previousPushups: null };
+    }
+    
+    const latest = ptMetrics[ptMetrics.length - 1];
+    const previous = ptMetrics.length > 1 ? ptMetrics[ptMetrics.length - 2] : null;
+    
+    return {
+      runTime: latest.runTime,
+      pushups: latest.pushups,
+      previousRun: previous?.runTime,
+      previousPushups: previous?.pushups
+    };
+  };
+
+  const formatRunTime = (decimalMinutes: number | undefined | null): string => {
+    if (!decimalMinutes) return "--:--";
+    const minutes = Math.floor(decimalMinutes);
+    const seconds = Math.round((decimalMinutes - minutes) * 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
   
   // Format date as "Day, Month Date"
   const formatDate = (date: Date) => {
@@ -170,7 +198,7 @@ const Dashboard = () => {
     setTodaysWorkout(updatedWorkout);
   };
 
-  if (loading || programsLoading) {
+  if (loading || programsLoading || progressLoading) {
     return (
       <MobileLayout hideBackButton={true}>
         <div className="flex items-center justify-center h-full">
@@ -179,6 +207,8 @@ const Dashboard = () => {
       </MobileLayout>
     );
   }
+
+  const latestMetrics = getLatestMetrics();
 
   return (
     <MobileLayout hideBackButton={true}>
@@ -257,10 +287,10 @@ const Dashboard = () => {
           </section>
         )}
         
-        {/* Selection Countdown Tile - Only visible if selection data exists */}
+        {/* Selection Countdown Tile - Now uses DB data */}
         <CountdownTile 
-          selectionDate={profileData?.selectionDate || null} 
-          selectionType={profileData?.selectionType || null} 
+          selectionDate={profileData?.selection_date || null} 
+          selectionType={profileData?.selection_type || null} 
         />
         
         {/* Quick stats - Shows real program data */}
@@ -309,25 +339,39 @@ const Dashboard = () => {
             </button>
           </div>
           
-          <div className="space-y-3">
-            {upcomingWorkouts.map((workout, index) => (
-              <div key={index} className="flex items-center bg-card rounded-lg p-3 border border-border">
-                <div className="bg-secondary/60 rounded p-2 mr-3">
-                  <CalendarIcon size={20} className="text-tactical-blue" />
+          {upcomingWorkouts.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingWorkouts.map((workout, index) => (
+                <div key={index} className="flex items-center bg-card rounded-lg p-3 border border-border">
+                  <div className="bg-secondary/60 rounded p-2 mr-3">
+                    <CalendarIcon size={20} className="text-tactical-blue" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{workout.title}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(workout.date)}</p>
+                  </div>
+                  <div className="bg-secondary/30 py-1 px-2 rounded text-xs">
+                    {workout.type}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{workout.title}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(workout.date)}</p>
-                </div>
-                <div className="bg-secondary/30 py-1 px-2 rounded text-xs">
-                  {workout.type}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-card rounded-lg border border-border p-4 text-center">
+              <p className="text-muted-foreground text-sm">No upcoming workouts this week</p>
+              {activePrograms.length === 0 && (
+                <button
+                  onClick={() => navigate('/programs')}
+                  className="text-tactical-blue text-sm mt-2"
+                >
+                  Start a program to schedule workouts
+                </button>
+              )}
+            </div>
+          )}
         </section>
         
-        {/* Progress overview */}
+        {/* Progress overview - Now with real data */}
         <section>
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-semibold">Progress</h2>
@@ -345,25 +389,79 @@ const Dashboard = () => {
           <div className="bg-card rounded-lg border border-border p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium">PT Score Progress</h3>
-              <div className="bg-tactical-blue/20 text-tactical-blue text-xs py-1 px-2 rounded">
-                Improving
-              </div>
+              {ptMetrics.length > 1 && (
+                <div className="bg-tactical-blue/20 text-tactical-blue text-xs py-1 px-2 rounded flex items-center gap-1">
+                  <TrendingUp size={12} />
+                  Tracking
+                </div>
+              )}
             </div>
             
-            <div className="h-32 flex items-center justify-center bg-muted/20 rounded mb-4">
-              <BarChart2 size={32} className="text-muted-foreground" />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground">Run (1.5 mi)</p>
-                <p className="font-medium">10:45 → 10:20</p>
+            {ptMetrics.length > 0 ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Run (1.5 mi)</p>
+                    <p className="font-medium">
+                      {latestMetrics.previousRun 
+                        ? `${formatRunTime(latestMetrics.previousRun)} → ${formatRunTime(latestMetrics.runTime)}`
+                        : formatRunTime(latestMetrics.runTime)
+                      }
+                    </p>
+                    {latestMetrics.previousRun && latestMetrics.runTime && 
+                      latestMetrics.runTime < latestMetrics.previousRun && (
+                      <p className="text-xs text-green-500">
+                        ↓ {((latestMetrics.previousRun - latestMetrics.runTime) * 60).toFixed(0)}s faster
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Push-ups</p>
+                    <p className="font-medium">
+                      {latestMetrics.previousPushups 
+                        ? `${latestMetrics.previousPushups} → ${latestMetrics.pushups || '--'}`
+                        : latestMetrics.pushups || '--'
+                      }
+                    </p>
+                    {latestMetrics.previousPushups && latestMetrics.pushups && 
+                      latestMetrics.pushups > latestMetrics.previousPushups && (
+                      <p className="text-xs text-green-500">
+                        ↑ +{latestMetrics.pushups - latestMetrics.previousPushups} reps
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Workout Stats */}
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <div className="text-lg font-bold">{workoutStats.totalCompleted}</div>
+                      <div className="text-xs text-muted-foreground">Workouts</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold">{workoutStats.adherence}%</div>
+                      <div className="text-xs text-muted-foreground">Adherence</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold">{workoutStats.currentWeek}/{workoutStats.totalWeeks}</div>
+                      <div className="text-xs text-muted-foreground">Week</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <BarChart2 size={32} className="mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground text-sm mb-2">No PT metrics recorded yet</p>
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="text-tactical-blue text-sm"
+                >
+                  Add your baseline scores
+                </button>
               </div>
-              <div>
-                <p className="text-muted-foreground">Push-ups</p>
-                <p className="font-medium">52 → 58</p>
-              </div>
-            </div>
+            )}
           </div>
         </section>
       </div>
