@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Play, Pause, RotateCcw, Plus, Minus, X } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Minus, X, Volume2, VolumeX } from "lucide-react";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
+import { useAudioFeedback } from "@/hooks/useAudioFeedback";
 
 interface SmartRestTimerProps {
   initialSeconds: number;
@@ -18,8 +19,13 @@ const SmartRestTimer: React.FC<SmartRestTimerProps> = ({
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isPaused, setIsPaused] = useState(false);
   const [originalTime, setOriginalTime] = useState(initialSeconds);
+  const [audioEnabled, setAudioEnabled] = useState(() => {
+    const stored = localStorage.getItem("timerAudioEnabled");
+    return stored !== null ? stored === "true" : true;
+  });
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { triggerHaptic, timerComplete } = useHapticFeedback();
+  const { playTimerComplete } = useAudioFeedback();
 
   // Reset timer when new rest period starts
   useEffect(() => {
@@ -46,6 +52,9 @@ const SmartRestTimer: React.FC<SmartRestTimerProps> = ({
         if (prev <= 1) {
           // Timer complete!
           timerComplete();
+          if (audioEnabled) {
+            playTimerComplete();
+          }
           onComplete?.();
           return 0;
         }
@@ -64,7 +73,7 @@ const SmartRestTimer: React.FC<SmartRestTimerProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isActive, isPaused, timeLeft, onComplete, triggerHaptic, timerComplete]);
+  }, [isActive, isPaused, timeLeft, onComplete, triggerHaptic, timerComplete, audioEnabled, playTimerComplete]);
 
   const togglePause = useCallback(() => {
     setIsPaused((prev) => !prev);
@@ -81,6 +90,13 @@ const SmartRestTimer: React.FC<SmartRestTimerProps> = ({
     setTimeLeft((prev) => Math.max(0, prev + seconds));
     triggerHaptic("light");
   }, [triggerHaptic]);
+
+  const toggleAudio = useCallback(() => {
+    const newValue = !audioEnabled;
+    setAudioEnabled(newValue);
+    localStorage.setItem("timerAudioEnabled", String(newValue));
+    triggerHaptic("light");
+  }, [audioEnabled, triggerHaptic]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -159,6 +175,15 @@ const SmartRestTimer: React.FC<SmartRestTimerProps> = ({
               aria-label={isPaused ? "Resume timer" : "Pause timer"}
             >
               {isPaused ? <Play size={20} /> : <Pause size={20} />}
+            </button>
+
+            {/* Audio toggle */}
+            <button
+              onClick={toggleAudio}
+              className="p-2 rounded-full bg-background/20 text-foreground hover:bg-background/30 transition-colors"
+              aria-label={audioEnabled ? "Mute timer sound" : "Enable timer sound"}
+            >
+              {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
 
             {/* Reset */}
