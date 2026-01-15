@@ -42,92 +42,105 @@ const Dashboard = () => {
   // Scheduled upcoming workouts
   const [upcomingWorkouts, setUpcomingWorkouts] = useState<any[]>([]);
   
-  useEffect(() => {
-    async function getUserData() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          navigate("/login");
-          return;
-        }
-        
-        // Get profile data including selection info from DB
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*, first_name, last_name, selection_date, selection_type')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile) {
-          setProfileData(profile);
-        }
-        
-        // Check if user is admin
-        const { data: roles } = await supabase
-          .from('user_roles')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('role', 'admin');
-        setIsAdmin(roles && roles.length > 0);
-
-        // Fetch today's scheduled workout and upcoming 7 days
-        const toISODate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-        const today = new Date();
-        const todayISO = toISODate(today);
-        const endISO = toISODate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000));
-
-        const { data: todays } = await supabase
-          .from('user_scheduled_workouts')
-          .select('id, date, title, day_type, exercises, status')
-          .eq('user_id', user.id)
-          .eq('date', todayISO)
-          .limit(1);
-
-        if (todays && todays.length > 0) {
-          const t = todays[0];
-          setTodaysWorkout({
-            id: t.id,
-            title: t.title,
-            description: t.day_type || 'Training Session',
-            exercises: Array.isArray(t.exercises) ? t.exercises.map((e: any) => ({
-              name: e.name,
-              sets: e.sets,
-              reps: e.reps
-            })) : [],
-            duration: 60,
-            status: t.status,
-          });
-        } else {
-          setTodaysWorkout(null);
-        }
-
-        const { data: upcoming } = await supabase
-          .from('user_scheduled_workouts')
-          .select('id, date, title, day_type, status')
-          .eq('user_id', user.id)
-          .gt('date', todayISO)
-          .lte('date', endISO)
-          .order('date', { ascending: true });
-
-        if (upcoming) {
-          setUpcomingWorkouts(
-            upcoming.map((w: any) => ({
-              id: w.id,
-              date: new Date(w.date),
-              title: w.title,
-              type: w.day_type || 'Training',
-            }))
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      } finally {
-        setLoading(false);
+  const fetchDashboardData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate("/login");
+        return;
       }
+      
+      // Get profile data including selection info from DB
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*, first_name, last_name, selection_date, selection_type')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile) {
+        setProfileData(profile);
+      }
+      
+      // Check if user is admin
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('role', 'admin');
+      setIsAdmin(roles && roles.length > 0);
+
+      // Fetch today's scheduled workout and upcoming 7 days
+      const toISODate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const today = new Date();
+      const todayISO = toISODate(today);
+      const endISO = toISODate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000));
+
+      const { data: todays } = await supabase
+        .from('user_scheduled_workouts')
+        .select('id, date, title, day_type, exercises, status')
+        .eq('user_id', user.id)
+        .eq('date', todayISO)
+        .limit(1);
+
+      if (todays && todays.length > 0) {
+        const t = todays[0];
+        setTodaysWorkout({
+          id: t.id,
+          title: t.title,
+          description: t.day_type || 'Training Session',
+          exercises: Array.isArray(t.exercises) ? t.exercises.map((e: any) => ({
+            name: e.name,
+            sets: e.sets,
+            reps: e.reps
+          })) : [],
+          duration: 60,
+          status: t.status,
+        });
+      } else {
+        setTodaysWorkout(null);
+      }
+
+      const { data: upcoming } = await supabase
+        .from('user_scheduled_workouts')
+        .select('id, date, title, day_type, status')
+        .eq('user_id', user.id)
+        .gt('date', todayISO)
+        .lte('date', endISO)
+        .order('date', { ascending: true });
+
+      if (upcoming) {
+        setUpcomingWorkouts(
+          upcoming.map((w: any) => ({
+            id: w.id,
+            date: new Date(w.date),
+            title: w.title,
+            type: w.day_type || 'Training',
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setLoading(false);
     }
+  };
+  
+  useEffect(() => {
+    fetchDashboardData();
     
-    getUserData();
+    // Listen for auth state changes to handle account switching
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Defer the fetch to avoid auth deadlocks
+        setTimeout(() => {
+          setLoading(true);
+          fetchDashboardData();
+        }, 0);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
   
   // Calculate combined stats from all active programs
