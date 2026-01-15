@@ -255,19 +255,3 @@
 .safe-area-top {
   padding-top: env(safe-area-inset-top, 0);
 }
-
-/* Confetti animation for celebrations */
-@keyframes confetti {
-  0% {
-    transform: translateY(-10px) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(720deg);
-    opacity: 0;
-  }
-}
-
-.animate-confetti {
-  animation: confetti 2s ease-out forwards;
-}

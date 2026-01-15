@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Trophy, Clock, Target, Calendar, Flame } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
-import { useAudioFeedback } from "@/hooks/useAudioFeedback";
 
 interface WorkoutCompletionModalProps {
   isOpen: boolean;
@@ -26,20 +25,12 @@ const WorkoutCompletionModal = ({
 }: WorkoutCompletionModalProps) => {
   const navigate = useNavigate();
   const { timerComplete } = useHapticFeedback();
-  const { playSuccess } = useAudioFeedback();
-  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setShowConfetti(true);
       timerComplete();
-      playSuccess();
-      
-      // Remove confetti after animation
-      const timer = setTimeout(() => setShowConfetti(false), 3000);
-      return () => clearTimeout(timer);
     }
-  }, [isOpen, timerComplete, playSuccess]);
+  }, [isOpen, timerComplete]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -75,26 +66,6 @@ const WorkoutCompletionModal = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md bg-card border-border">
-        {/* Confetti Animation */}
-        {showConfetti && (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {Array.from({ length: 50 }).map((_, i) => (
-              <div
-                key={i}
-                className="absolute w-2 h-2 animate-confetti"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  backgroundColor: ["#FFD700", "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"][
-                    Math.floor(Math.random() * 5)
-                  ],
-                  animationDelay: `${Math.random() * 0.5}s`,
-                  animationDuration: `${1 + Math.random() * 2}s`,
-                }}
-              />
-            ))}
-          </div>
-        )}
-
         <div className="text-center space-y-6 py-4">
           {/* Trophy Icon */}
           <div className="w-20 h-20 mx-auto bg-primary/20 rounded-full flex items-center justify-center animate-bounce">
