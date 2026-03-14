@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import MobileLayout from "../components/layouts/MobileLayout";
 import WorkoutTimer from "../components/workout/WorkoutTimer";
-import SmartRestTimer from "../components/workout/SmartRestTimer";
+import StickyRestTimer from "../components/workout/StickyRestTimer";
 import ExerciseCard from "../components/workout/ExerciseCard";
 import CardioExerciseCard from "../components/workout/CardioExerciseCard";
 import WorkoutCompletionModal from "../components/workout/WorkoutCompletionModal";
@@ -19,7 +19,6 @@ interface ScheduledExercise {
   order_position: number;
   is_bodyweight_percentage?: boolean;
   bodyweight_percentage?: number | null;
-  // Cardio-specific fields
   exercise_type?: string | null;
   distance?: number | null;
   distance_unit?: string | null;
@@ -43,7 +42,6 @@ interface ExerciseSetState {
   weight: number | null;
   completedReps: string | number | null;
   isCompleted: boolean;
-  // Cardio-specific
   targetDistance?: number | null;
   actualDistance?: number | null;
   distanceUnit?: string;
@@ -56,18 +54,13 @@ const toISODate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60
 const Workout = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-
   const [loading, setLoading] = useState(true);
   const [userMaxLifts, setUserMaxLifts] = useState<UserMaxLifts | null>(null);
   const [workoutLogId, setWorkoutLogId] = useState<string | null>(null);
   const [scheduled, setScheduled] = useState<{
-    id: string;
-    title: string;
-    day_type: string | null;
-    exercises: ScheduledExercise[];
-    date: string;
+    id: string; title: string; day_type: string | null;
+    exercises: ScheduledExercise[]; date: string;
   } | null>(null);
-
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -76,144 +69,85 @@ const Workout = () => {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [totalTime, setTotalTime] = useState(0);
-
-  // Local sets state and index of existing set log rows
   const [setsState, setSetsState] = useState<Record<string, ExerciseSetState>>({});
   const [setRowIndex, setSetRowIndex] = useState<Record<string, string>>({});
 
-  // Derived workout object for UI
   const workoutTitle = scheduled?.title || "Workout";
   const workoutDescription = scheduled?.day_type || "Training Session";
-  const exercisesForUI = useMemo(() => {
-    if (!scheduled) return [] as Array<{
-      id: number;
-      name: string;
-      sets: ExerciseSetState[];
-      notes: string;
-      restTime: number;
-      video: string;
-      isBodyweightPercentage?: boolean;
-      bodyweightPercentage?: number;
-      userMaxLifts?: UserMaxLifts | null;
-      // Cardio fields
-      exerciseType?: string;
-      targetDistance?: number | null;
-      targetTime?: string | null;
-      targetPace?: string | null;
-      distanceUnit?: string;
-    }>;
 
+  const exercisesForUI = useMemo(() => {
+    if (!scheduled) return [] as any[];
     return scheduled.exercises
       .sort((a, b) => a.order_position - b.order_position)
       .map((ex, idx) => {
-        const isCardio = ex.exercise_type === "cardio" || 
+        const isCardio =
+          ex.exercise_type === "cardio" ||
           ex.movement_name?.toLowerCase().includes("run") ||
           ex.movement_name?.toLowerCase().includes("ruck");
-        
         const baseSets: ExerciseSetState[] = Array.from({ length: ex.sets }).map((_, i) => {
           const key = `${idx}-${i + 1}`;
-          return (
-            setsState[key] || {
-              setNumber: i + 1,
-              targetReps: ex.reps,
-              weight: null,
-              completedReps: null,
-              isCompleted: false,
-              // Cardio-specific defaults
-              targetDistance: ex.distance,
-              actualDistance: null,
-              distanceUnit: ex.distance_unit || "miles",
-              targetTime: ex.target_time,
-              actualTime: null,
-            }
-          );
+          return setsState[key] || {
+            setNumber: i + 1,
+            targetReps: ex.reps,
+            weight: null,
+            completedReps: null,
+            isCompleted: false,
+            targetDistance: ex.distance,
+            actualDistance: null,
+            distanceUnit: ex.distance_unit || "miles",
+            targetTime: ex.target_time,
+            actualTime: null,
+          };
         });
-
         return {
-          id: idx + 1,
-          name: ex.movement_name,
-          sets: baseSets,
-          notes: ex.notes || "",
-          restTime: isCardio ? 180 : 90, // Longer rest for cardio
-          video: "",
+          id: idx + 1, name: ex.movement_name, sets: baseSets,
+          notes: ex.notes || "", restTime: isCardio ? 180 : 90, video: "",
           isBodyweightPercentage: !!ex.is_bodyweight_percentage,
           bodyweightPercentage: ex.bodyweight_percentage ?? undefined,
           userMaxLifts,
-          // Cardio fields
           exerciseType: isCardio ? "cardio" : (ex.exercise_type || "strength"),
-          targetDistance: ex.distance,
-          targetTime: ex.target_time,
-          targetPace: ex.target_pace,
-          distanceUnit: ex.distance_unit || "miles",
+          targetDistance: ex.distance, targetTime: ex.target_time,
+          targetPace: ex.target_pace, distanceUnit: ex.distance_unit || "miles",
         };
       });
   }, [scheduled, setsState, userMaxLifts]);
 
-  // Load scheduled workout, ensure workout log exists, and hydrate set logs
   useEffect(() => {
     const load = async () => {
       try {
-        if (!id) {
-          toast.error("Workout not found");
-          navigate("/calendar");
-          return;
-        }
-
-        // SEO
-        document.title = `${scheduled?.title ?? "Workout"} | Performance First`;
-
-        // Ensure user is logged in
+        if (!id) { toast.error("Workout not found"); navigate("/calendar"); return; }
         const { data: auth } = await supabase.auth.getUser();
-        if (!auth.user) {
-          navigate("/login");
-          return;
-        }
+        if (!auth.user) { navigate("/login"); return; }
 
-        // Load profile to get weight and RM values
         const { data: profile } = await supabase
           .from("profiles")
           .select("weight, bench_3rm, deadlift_3rm, squat_3rm, bench_5rm, deadlift_5rm, squat_5rm")
           .eq("id", auth.user.id)
           .maybeSingle();
-        
+
         setUserMaxLifts({
-          weight: profile?.weight ?? null,
-          bench_3rm: profile?.bench_3rm ?? null,
-          deadlift_3rm: profile?.deadlift_3rm ?? null,
-          squat_3rm: profile?.squat_3rm ?? null,
-          bench_5rm: profile?.bench_5rm ?? null,
-          deadlift_5rm: profile?.deadlift_5rm ?? null,
+          weight: profile?.weight ?? null, bench_3rm: profile?.bench_3rm ?? null,
+          deadlift_3rm: profile?.deadlift_3rm ?? null, squat_3rm: profile?.squat_3rm ?? null,
+          bench_5rm: profile?.bench_5rm ?? null, deadlift_5rm: profile?.deadlift_5rm ?? null,
           squat_5rm: profile?.squat_5rm ?? null,
         });
 
-        // Load scheduled workout
         const { data: s, error: sErr } = await (supabase as any)
-          .from("user_scheduled_workouts")
-          .select("id, date, title, day_type, exercises")
-          .eq("id", id)
-          .maybeSingle();
+          .from("user_scheduled_workouts").select("id, date, title, day_type, exercises")
+          .eq("id", id).maybeSingle();
         if (sErr) throw sErr;
-        if (!s) {
-          toast.error("Scheduled workout not found");
-          navigate("/calendar");
-          return;
-        }
+        if (!s) { toast.error("Scheduled workout not found"); navigate("/calendar"); return; }
         setScheduled(s);
 
-        // Create or fetch workout log
         const { data: existingLog } = await (supabase as any)
-          .from("user_workout_logs")
-          .select("id, started_at, completed_at")
-          .eq("scheduled_workout_id", id)
-          .maybeSingle();
+          .from("user_workout_logs").select("id, started_at, completed_at")
+          .eq("scheduled_workout_id", id).maybeSingle();
 
         let logId = existingLog?.id as string | undefined;
         if (!logId) {
           const { data: newLog, error: logErr } = await (supabase as any)
-            .from("user_workout_logs")
-            .insert({ scheduled_workout_id: id })
-            .select("id, started_at")
-            .single();
+            .from("user_workout_logs").insert({ scheduled_workout_id: id })
+            .select("id, started_at").single();
           if (logErr) throw logErr;
           logId = newLog.id;
           setStartTime(new Date(newLog.started_at));
@@ -223,7 +157,6 @@ const Workout = () => {
         }
         setWorkoutLogId(logId);
 
-        // Load existing set logs
         const { data: setLogs, error: slErr } = await (supabase as any)
           .from("user_set_logs")
           .select("id, exercise_index, set_number, target_reps, actual_reps, actual_weight, completed")
@@ -237,17 +170,14 @@ const Workout = () => {
             const key = `${row.exercise_index}-${row.set_number}`;
             newIndex[key] = row.id;
             newSetsState[key] = {
-              setNumber: row.set_number,
-              targetReps: row.target_reps ?? "",
-              weight: row.actual_weight ?? null,
-              completedReps: row.actual_reps ?? null,
+              setNumber: row.set_number, targetReps: row.target_reps ?? "",
+              weight: row.actual_weight ?? null, completedReps: row.actual_reps ?? null,
               isCompleted: !!row.completed,
             };
           });
         }
         setSetRowIndex(newIndex);
         setSetsState((prev) => ({ ...prev, ...newSetsState }));
-
         setLoading(false);
       } catch (err) {
         console.error(err);
@@ -255,11 +185,9 @@ const Workout = () => {
         setLoading(false);
       }
     };
-
     load();
   }, [id]);
 
-  // Timers
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
     if (isTimerRunning) {
@@ -280,93 +208,67 @@ const Workout = () => {
     return () => interval && clearInterval(interval);
   }, [isTimerRunning, isRestTimer]);
 
-  // Total time ticker
   useEffect(() => {
     if (startTime && !workoutCompleted) {
       const interval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
-        setTotalTime(elapsed);
+        setTotalTime(Math.floor((Date.now() - startTime.getTime()) / 1000));
       }, 1000);
       return () => clearInterval(interval);
     }
   }, [startTime, workoutCompleted]);
 
   const toggleTimer = () => setIsTimerRunning((v) => !v);
-  const resetTimer = () => {
-    if (isRestTimer) setTimer(0);
-    else setTimer(0);
-    setIsTimerRunning(false);
-  };
+
   const startRestTimer = (seconds: number) => {
     setTimer(seconds);
     setIsRestTimer(true);
     setIsTimerRunning(true);
   };
 
+  const dismissRestTimer = () => {
+    setTimer(0);
+    setIsRestTimer(false);
+    setIsTimerRunning(false);
+  };
+
   const persistSetLog = async (
-    exerciseIndex: number,
-    setNumber: number,
-    updates: Partial<{ 
-      completed: boolean; 
-      actual_weight: number | null; 
-      actual_reps: number | null;
-      actual_distance: number | null;
-      actual_time: string | null;
-      distance_unit: string | null;
-    }>,
+    exerciseIndex: number, setNumber: number,
+    updates: Partial<{ completed: boolean; actual_weight: number | null; actual_reps: number | null; actual_distance: number | null; actual_time: string | null; distance_unit: string | null; }>,
     targetReps?: number | string
   ) => {
     if (!workoutLogId) return;
     const key = `${exerciseIndex}-${setNumber}`;
     const existingId = setRowIndex[key];
-
     try {
       if (existingId) {
-        const { error } = await (supabase as any)
-          .from("user_set_logs")
-          .update({ ...updates })
-          .eq("id", existingId);
-        if (error) throw error;
+        await (supabase as any).from("user_set_logs").update({ ...updates }).eq("id", existingId);
       } else {
         const { data, error } = await (supabase as any)
           .from("user_set_logs")
           .insert({
-            workout_log_id: workoutLogId,
-            exercise_index: exerciseIndex,
-            set_number: setNumber,
+            workout_log_id: workoutLogId, exercise_index: exerciseIndex, set_number: setNumber,
             target_reps: typeof targetReps === "string" ? parseInt(targetReps) || null : targetReps ?? null,
-            actual_reps: updates.actual_reps ?? null,
-            actual_weight: updates.actual_weight ?? null,
+            actual_reps: updates.actual_reps ?? null, actual_weight: updates.actual_weight ?? null,
             completed: updates.completed ?? false,
-            // Cardio fields
-            actual_distance: updates.actual_distance ?? null,
-            actual_time: updates.actual_time ?? null,
+            actual_distance: updates.actual_distance ?? null, actual_time: updates.actual_time ?? null,
             distance_unit: updates.distance_unit ?? null,
-          })
-          .select("id")
-          .single();
+          }).select("id").single();
         if (error) throw error;
         setSetRowIndex((prev) => ({ ...prev, [key]: data.id }));
       }
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to save set");
-    }
+    } catch (e) { console.error(e); toast.error("Failed to save set"); }
   };
 
   const updateSetData = (exerciseIndex: number, setIndex: number, field: string, value: any) => {
     const setNumber = setIndex + 1;
     const key = `${exerciseIndex}-${setNumber}`;
-
     setSetsState((prev) => ({
       ...prev,
       [key]: {
-        setNumber,
-        targetReps: prev[key]?.targetReps ?? (scheduled?.exercises[exerciseIndex]?.reps ?? 0),
+        setNumber, targetReps: prev[key]?.targetReps ?? (scheduled?.exercises[exerciseIndex]?.reps ?? 0),
         weight: field === "weight" ? (value === "" ? null : Number(value)) : prev[key]?.weight ?? null,
         completedReps: field === "completedReps" ? (value === "" ? null : value) : prev[key]?.completedReps ?? null,
         isCompleted: field === "isCompleted" ? !!value : prev[key]?.isCompleted ?? false,
-        // Cardio fields
         targetDistance: prev[key]?.targetDistance,
         actualDistance: field === "actualDistance" ? value : prev[key]?.actualDistance ?? null,
         distanceUnit: prev[key]?.distanceUnit || "miles",
@@ -374,94 +276,46 @@ const Workout = () => {
         actualTime: field === "actualTime" ? value : prev[key]?.actualTime ?? null,
       },
     }));
+    if (field === "weight") persistSetLog(exerciseIndex, setNumber, { actual_weight: value === "" ? null : Number(value) }, setsState[key]?.targetReps as any);
+    else if (field === "completedReps") persistSetLog(exerciseIndex, setNumber, { actual_reps: value === "" ? null : Number(value) }, setsState[key]?.targetReps as any);
+    else if (field === "actualDistance") persistSetLog(exerciseIndex, setNumber, { actual_distance: value }, setsState[key]?.targetReps as any);
+    else if (field === "actualTime") persistSetLog(exerciseIndex, setNumber, { actual_time: value }, setsState[key]?.targetReps as any);
+    else if (field === "isCompleted") persistSetLog(exerciseIndex, setNumber, { completed: !!value }, setsState[key]?.targetReps as any);
 
-    // Persist change
-    if (field === "weight") {
-      persistSetLog(exerciseIndex, setNumber, { actual_weight: value === "" ? null : Number(value) }, setsState[key]?.targetReps as any);
-    } else if (field === "completedReps") {
-      const repsVal = value === "" ? null : Number(value);
-      persistSetLog(exerciseIndex, setNumber, { actual_reps: repsVal }, setsState[key]?.targetReps as any);
-    } else if (field === "actualDistance") {
-      persistSetLog(exerciseIndex, setNumber, { actual_distance: value }, setsState[key]?.targetReps as any);
-    } else if (field === "actualTime") {
-      persistSetLog(exerciseIndex, setNumber, { actual_time: value }, setsState[key]?.targetReps as any);
-    } else if (field === "isCompleted") {
-      persistSetLog(exerciseIndex, setNumber, { completed: !!value }, setsState[key]?.targetReps as any);
-      // Auto-advance will be handled by UI state below
-    }
-
-    // Auto-advance when all sets in exercise complete
     const allSets = exercisesForUI[exerciseIndex]?.sets || [];
-    const nextStateSets = allSets.map((s) => (s.setNumber === setNumber ? { ...s, isCompleted: field === "isCompleted" ? !!value : s.isCompleted } : s));
-    const allCompleted = nextStateSets.every((s) => s.isCompleted);
-    if (allCompleted && exerciseIndex < exercisesForUI.length - 1) {
+    const nextSets = allSets.map((s) => (s.setNumber === setNumber ? { ...s, isCompleted: field === "isCompleted" ? !!value : s.isCompleted } : s));
+    if (nextSets.every((s) => s.isCompleted) && exerciseIndex < exercisesForUI.length - 1) {
       setActiveExerciseIndex(exerciseIndex + 1);
     }
   };
 
   const handleCompleteWorkout = async () => {
     try {
-      // Compute completion
-      let total = 0;
-      let done = 0;
-      exercisesForUI.forEach((ex) => {
-        ex.sets.forEach((s) => {
-          total += 1;
-          if (s.isCompleted) done += 1;
-        });
-      });
-      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-      // Persist completion
       if (workoutLogId) {
-        const { error: logError } = await (supabase as any)
-          .from("user_workout_logs")
-          .update({ completed_at: toISODate(new Date()) })
-          .eq("id", workoutLogId);
-        if (logError) throw logError;
-
-        // Mark scheduled workout as completed
-        const { error: scheduleError } = await (supabase as any)
-          .from("user_scheduled_workouts")
-          .update({ status: 'completed' })
-          .eq("id", id);
-        if (scheduleError) throw scheduleError;
+        await (supabase as any).from("user_workout_logs").update({ completed_at: toISODate(new Date()) }).eq("id", workoutLogId);
+        await (supabase as any).from("user_scheduled_workouts").update({ status: "completed" }).eq("id", id);
       }
-
       setWorkoutCompleted(true);
       setShowCompletionModal(true);
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to complete workout");
-    }
+    } catch (e) { console.error(e); toast.error("Failed to complete workout"); }
   };
 
-  // Calculate completion stats for modal
   const completionStats = useMemo(() => {
-    let totalSets = 0;
-    let completedSets = 0;
-    exercisesForUI.forEach((ex) => {
-      ex.sets.forEach((s) => {
-        totalSets += 1;
-        if (s.isCompleted) completedSets += 1;
-      });
-    });
+    let totalSets = 0, completedSets = 0;
+    exercisesForUI.forEach((ex) => ex.sets.forEach((s: any) => { totalSets++; if (s.isCompleted) completedSets++; }));
     return {
-      title: workoutTitle,
-      totalTime,
-      setsCompleted: completedSets,
-      totalSets,
-      exercisesCompleted: exercisesForUI.filter(ex => ex.sets.every(s => s.isCompleted)).length,
+      title: workoutTitle, totalTime, setsCompleted: completedSets, totalSets,
+      exercisesCompleted: exercisesForUI.filter((ex) => ex.sets.every((s: any) => s.isCompleted)).length,
       totalExercises: exercisesForUI.length,
     };
   }, [exercisesForUI, workoutTitle, totalTime]);
 
   const formatTotalTime = () => {
-    const hours = Math.floor(totalTime / 3600);
-    const minutes = Math.floor((totalTime % 3600) / 60);
-    const seconds = totalTime % 60;
-    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    const h = Math.floor(totalTime / 3600);
+    const m = Math.floor((totalTime % 3600) / 60);
+    const s = totalTime % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${m}:${String(s).padStart(2, "0")}`;
   };
 
   if (loading) {
@@ -486,7 +340,7 @@ const Workout = () => {
     <MobileLayout title="Workout">
       <div className="mobile-safe-area py-4">
         <header className="mb-4">
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-between items-center mb-1">
             <h1 className="text-xl font-bold">{workoutTitle}</h1>
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock size={14} className="mr-1" />
@@ -496,102 +350,82 @@ const Workout = () => {
           <p className="text-muted-foreground text-sm">{workoutDescription}</p>
         </header>
 
-        <WorkoutTimer
-          timer={timer}
-          isRunning={isTimerRunning}
-          onToggle={toggleTimer}
-          onReset={resetTimer}
-          isRest={isRestTimer}
-        />
+        {/* Elapsed workout timer — compact, non-rest */}
+        {!isRestTimer && (
+          <WorkoutTimer
+            timer={timer}
+            isRunning={isTimerRunning}
+            onToggle={toggleTimer}
+            onReset={() => { setTimer(0); setIsTimerRunning(false); }}
+            isRest={false}
+          />
+        )}
 
         <section className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Exercises</h2>
           <div className="space-y-1">
             {exercisesForUI.map((exercise, exerciseIndex) => {
               const isCardio = exercise.exerciseType === "cardio";
-              
               if (isCardio) {
-                // Convert sets to cardio format
-                const cardioSets = exercise.sets.map(s => ({
-                  setNumber: s.setNumber,
-                  targetDistance: exercise.targetDistance ?? null,
-                  targetTime: exercise.targetTime ?? null,
-                  actualDistance: s.actualDistance ?? null,
-                  actualTime: s.actualTime ?? null,
-                  distanceUnit: (exercise.distanceUnit || "miles") as "miles" | "meters" | "km",
+                const cardioSets = exercise.sets.map((s: any) => ({
+                  setNumber: s.setNumber, targetDistance: exercise.targetDistance ?? null,
+                  targetTime: exercise.targetTime ?? null, actualDistance: s.actualDistance ?? null,
+                  actualTime: s.actualTime ?? null, distanceUnit: (exercise.distanceUnit || "miles") as any,
                   isCompleted: s.isCompleted,
                 }));
-                
                 return (
                   <CardioExerciseCard
-                    key={exercise.id}
-                    id={exercise.id}
-                    index={exerciseIndex}
-                    name={exercise.name}
-                    sets={cardioSets}
-                    notes={exercise.notes}
-                    restTime={exercise.restTime}
-                    video={exercise.video}
+                    key={exercise.id} id={exercise.id} index={exerciseIndex}
+                    name={exercise.name} sets={cardioSets} notes={exercise.notes}
+                    restTime={exercise.restTime} video={exercise.video}
                     isActive={activeExerciseIndex === exerciseIndex}
-                    targetDistance={exercise.targetDistance}
-                    targetTime={exercise.targetTime}
-                    targetPace={exercise.targetPace}
-                    distanceUnit={(exercise.distanceUnit || "miles") as "miles" | "meters" | "km"}
-                    onSetComplete={(exIdx, setIdx, isCompleted) => {
-                      updateSetData(exIdx, setIdx, "isCompleted", isCompleted);
-                      if (isCompleted) startRestTimer(exercise.restTime);
-                    }}
-                    onSetDataChange={updateSetData}
-                    onRestTimerStart={startRestTimer}
+                    targetDistance={exercise.targetDistance} targetTime={exercise.targetTime}
+                    targetPace={exercise.targetPace} distanceUnit={(exercise.distanceUnit || "miles") as any}
+                    onSetComplete={(exIdx, setIdx, isCompleted) => { updateSetData(exIdx, setIdx, "isCompleted", isCompleted); if (isCompleted) startRestTimer(exercise.restTime); }}
+                    onSetDataChange={updateSetData} onRestTimerStart={startRestTimer}
                   />
                 );
               }
-              
               return (
                 <ExerciseCard
-                  key={exercise.id}
-                  id={exercise.id}
-                  index={exerciseIndex}
-                  name={exercise.name}
-                  sets={exercise.sets}
-                  notes={exercise.notes}
-                  restTime={exercise.restTime}
-                  video={exercise.video}
+                  key={exercise.id} id={exercise.id} index={exerciseIndex}
+                  name={exercise.name} sets={exercise.sets} notes={exercise.notes}
+                  restTime={exercise.restTime} video={exercise.video}
                   isActive={activeExerciseIndex === exerciseIndex}
                   isBodyweightPercentage={exercise.isBodyweightPercentage}
                   bodyweightPercentage={exercise.bodyweightPercentage}
                   userMaxLifts={exercise.userMaxLifts ?? undefined}
-                  onSetComplete={(exIdx, setIdx, isCompleted) => {
-                    updateSetData(exIdx, setIdx, "isCompleted", isCompleted);
-                    if (isCompleted) startRestTimer(exercise.restTime);
-                  }}
-                  onSetDataChange={updateSetData}
-                  onRestTimerStart={startRestTimer}
+                  onSetComplete={(exIdx, setIdx, isCompleted) => { updateSetData(exIdx, setIdx, "isCompleted", isCompleted); if (isCompleted) startRestTimer(exercise.restTime); }}
+                  onSetDataChange={updateSetData} onRestTimerStart={startRestTimer}
                 />
               );
             })}
           </div>
         </section>
 
-        <div className="pb-6">
+        <div className="pb-24">
           <button
-            className={`btn-primary flex items-center justify-center space-x-2 ${
-              workoutCompleted ? "bg-green-600" : "bg-gradient-to-r from-tactical-blue to-tactical-blue/80"
-            }`}
+            className={`btn-primary flex items-center justify-center space-x-2 ${workoutCompleted ? "bg-green-600" : "bg-gradient-to-r from-tactical-blue to-tactical-blue/80"}`}
             onClick={handleCompleteWorkout}
             disabled={workoutCompleted}
           >
             {workoutCompleted ? (
-              <>
-                <CheckCircle size={18} className="mr-2" />
-                <span>Workout Completed!</span>
-              </>
+              <><CheckCircle size={18} className="mr-2" /><span>Workout Completed!</span></>
             ) : (
               <span>Complete Workout</span>
             )}
           </button>
         </div>
       </div>
+
+      {/* Sticky rest timer — floats above tab bar */}
+      <StickyRestTimer
+        seconds={timer}
+        isRunning={isTimerRunning}
+        isRest={isRestTimer}
+        onToggle={toggleTimer}
+        onDismiss={dismissRestTimer}
+      />
 
       <WorkoutCompletionModal
         isOpen={showCompletionModal}
