@@ -1,4 +1,14 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+  ReferenceLine,
+} from "recharts";
 
 interface ProgressChartProps {
   data: any[];
@@ -8,16 +18,21 @@ interface ProgressChartProps {
   gradient?: boolean;
   lowerIsBetter?: boolean;
   formatValue?: (value: number) => string;
+  // New: target reference line
+  targetValue?: number;
+  targetLabel?: string;
 }
 
-const ProgressChart = ({ 
-  data, 
-  dataKey, 
+const ProgressChart = ({
+  data,
+  dataKey,
   xKey = "date",
   color = "hsl(var(--primary))",
   gradient = true,
   lowerIsBetter = false,
-  formatValue
+  formatValue,
+  targetValue,
+  targetLabel,
 }: ProgressChartProps) => {
   if (!data || data.length === 0) {
     return (
@@ -34,34 +49,66 @@ const ProgressChart = ({
       return (
         <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
           <p className="text-sm font-medium">{displayValue}</p>
+          {targetValue !== undefined && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Target: {formatValue ? formatValue(targetValue) : targetValue}
+            </p>
+          )}
         </div>
       );
     }
     return null;
   };
 
+  // Build domain that always shows the target line even if above/below data range
+  const values = data.map((d) => d[dataKey]).filter(Boolean);
+  const allValues = targetValue !== undefined ? [...values, targetValue] : values;
+  const minVal = Math.min(...allValues);
+  const maxVal = Math.max(...allValues);
+  const pad = (maxVal - minVal) * 0.2 || 5;
+  const domain = lowerIsBetter
+    ? [minVal - pad, maxVal + pad]
+    : [minVal - pad, maxVal + pad];
+
+  const targetLineColor = "#F59E0B"; // amber — distinct from progress line
+
   if (gradient) {
     return (
       <ResponsiveContainer width="100%" height={120}>
-        <AreaChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 5, left: 5, bottom: 5 }}>
           <defs>
             <linearGradient id={`gradient-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
-              <stop offset="95%" stopColor={color} stopOpacity={0}/>
+              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis 
-            dataKey={xKey} 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+          <XAxis
+            dataKey={xKey}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
           />
-          <YAxis 
-            hide 
-            domain={lowerIsBetter ? ['dataMin - 1', 'dataMax + 1'] : ['dataMin - 10', 'dataMax + 10']}
+          <YAxis
+            hide
+            domain={domain}
             reversed={lowerIsBetter}
           />
           <Tooltip content={<CustomTooltip />} />
+          {targetValue !== undefined && (
+            <ReferenceLine
+              y={targetValue}
+              stroke={targetLineColor}
+              strokeDasharray="4 3"
+              strokeWidth={1.5}
+              label={{
+                value: targetLabel || "Target",
+                position: "insideTopRight",
+                fontSize: 9,
+                fill: targetLineColor,
+                fontWeight: 500,
+              }}
+            />
+          )}
           <Area
             type="monotone"
             dataKey={dataKey}
@@ -77,15 +124,30 @@ const ProgressChart = ({
 
   return (
     <ResponsiveContainer width="100%" height={120}>
-      <LineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-        <XAxis 
-          dataKey={xKey} 
-          axisLine={false} 
+      <LineChart data={data} margin={{ top: 8, right: 5, left: 5, bottom: 5 }}>
+        <XAxis
+          dataKey={xKey}
+          axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
         />
-        <YAxis hide domain={['dataMin - 10', 'dataMax + 10']} />
+        <YAxis hide domain={domain} />
         <Tooltip content={<CustomTooltip />} />
+        {targetValue !== undefined && (
+          <ReferenceLine
+            y={targetValue}
+            stroke={targetLineColor}
+            strokeDasharray="4 3"
+            strokeWidth={1.5}
+            label={{
+              value: targetLabel || "Target",
+              position: "insideTopRight",
+              fontSize: 9,
+              fill: targetLineColor,
+              fontWeight: 500,
+            }}
+          />
+        )}
         <Line
           type="monotone"
           dataKey={dataKey}
